@@ -1,9 +1,15 @@
+/// Common configuration mechanisms
 pub mod config;
+/// Error type with responder implementation
 pub mod error;
+/// JWT signing functionality
 pub mod jwt;
-#[cfg(feature = "platform_token")]
+#[cfg(feature = "session_db")]
+/// Database manipulation code for keeping track of sessions based on platform tokens
 pub mod session;
+/// Common types
 pub mod types;
+/// Utilities
 pub mod util;
 
 pub mod prelude {
@@ -12,7 +18,7 @@ pub mod prelude {
     pub use crate::types::StartRequest;
     pub use crate::util::random_string;
     pub use crate::jwt::sign_auth_select_params;
-    #[cfg(feature = "platform_token")]
+    #[cfg(feature = "session_db")]
     pub use crate::session::{Session, SessionDBConn};
     pub use crate::types::{
         AuthResultSet, AuthSelectParams, GuestAuthResult, 
