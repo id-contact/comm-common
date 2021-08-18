@@ -11,7 +11,7 @@ use self::auth_during_comm::{AuthDuringCommConfig, RawAuthDuringCommConfig};
 
 /// Configuration paramters as read directly fom config.toml file.
 #[derive(Deserialize, Debug)]
-struct RawConfig {
+pub struct RawConfig {
     /// Internal-facing URL
     internal_url: String,
     /// External-facing URL. Defaults to Internal-facing if not set
@@ -38,6 +38,7 @@ pub struct Config {
     validator: Box<dyn JwsVerifier>,
 
     #[cfg(feature = "auth_during_comm")]
+    #[serde(flatten)]
     auth_during_comm_config: AuthDuringCommConfig,
 }
 
