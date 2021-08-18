@@ -12,13 +12,18 @@ pub struct SessionDBConn(postgres::Client);
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Session {
+    /// The guest token associated with this session
     pub guest_token: GuestToken,
+    /// The autheniction result. `None` if none was received yet
     pub auth_result: Option<String>,
+    /// ID used to match incoming attributes with this session
     pub attr_id: String,
+    /// Session purpose
     pub purpose: String,
 }
 
 impl Session {
+    /// Create a new session
     pub fn new(guest_token: GuestToken, attr_id: String, purpose: String) -> Self {
         Self {
             attr_id,
@@ -72,6 +77,8 @@ impl Session {
         Ok(())
     }
 
+    /// Register an authentication result with a session. Fails if the session
+    /// already contains an authentication result.
     pub async fn register_auth_result(
         attr_id: String,
         auth_result: String,
@@ -95,6 +102,7 @@ impl Session {
         }
     }
 
+    /// Find sessions by room ID
     pub async fn find_by_room_id(room_id: String, db: &SessionDBConn) -> Result<Vec<Self>, Error> {
         let sessions = db
             .run(move |c| -> Result<Vec<Session>, Error> {
@@ -145,6 +153,7 @@ impl Session {
     }
 }
 
+/// Remove all sessions that have been inactive for an hour or more
 pub async fn clean_db(db: &SessionDBConn) -> Result<(), Error> {
     db.run(move |c| {
         c.execute(

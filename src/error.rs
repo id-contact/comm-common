@@ -7,6 +7,7 @@ use rocket_contrib::json;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
+/// General Error type, used to capture all kinds of common errors. Can be used to respond to requests
 pub enum Error {
     #[error("Not found")]
     NotFound,
