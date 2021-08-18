@@ -6,6 +6,7 @@ use serde::Deserialize;
 
 use std::convert::TryFrom;
 
+#[cfg(feature = "auth_during_comm")]
 use self::auth_during_comm::{AuthDuringCommConfig, RawAuthDuringCommConfig};
 
 #[derive(Deserialize, Debug)]
@@ -74,7 +75,6 @@ impl Config {
         &self.auth_during_comm_config
     }
 }
-
 
 #[cfg(feature = "auth_during_comm")]
 mod auth_during_comm {
