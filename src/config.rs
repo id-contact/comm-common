@@ -10,9 +10,9 @@ use std::convert::TryFrom;
 use self::auth_during_comm::{AuthDuringCommConfig, RawAuthDuringCommConfig};
 
 #[derive(Deserialize, Debug)]
-pub struct RawConfig {
+struct RawConfig {
     internal_url: String,
-    external_url: String,
+    external_url: Option<String>,
 
     decryption_privkey: EncryptionKeyConfig,
     signature_pubkey: SignKeyConfig,
@@ -25,7 +25,7 @@ pub struct RawConfig {
 #[serde(try_from = "RawConfig")]
 pub struct Config {
     internal_url: String,
-    external_url: String,
+    external_url: Option<String>,
 
     decrypter: Box<dyn JweDecrypter>,
     validator: Box<dyn JwsVerifier>,
@@ -68,7 +68,10 @@ impl Config {
     }
 
     pub fn external_url(&self) -> &str {
-        &self.external_url
+        match &self.external_url {
+            Some(external_url) => external_url,
+            None => &self.internal_url
+        }
     }
     #[cfg(feature = "auth_during_comm")]
     pub fn auth_during_comm_config(&self) -> &AuthDuringCommConfig {
