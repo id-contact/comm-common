@@ -9,15 +9,22 @@ use std::convert::TryFrom;
 #[cfg(feature = "auth_during_comm")]
 use self::auth_during_comm::{AuthDuringCommConfig, RawAuthDuringCommConfig};
 
+/// Configuration paramters as read directly fom config.toml file.
 #[derive(Deserialize, Debug)]
 struct RawConfig {
+    /// Internal-facing URL
     internal_url: String,
+    /// External-facing URL. Defaults to Internal-facing if not set
     external_url: Option<String>,
 
+    /// Private key used to decrypt ID Contact JWEs
     decryption_privkey: EncryptionKeyConfig,
+    /// Public key used to sign ID Contact JWSs
     signature_pubkey: SignKeyConfig,
 
     #[cfg(feature = "auth_during_comm")]
+    #[serde(flatten)]
+    /// Configuration specific for auth during comm
     auth_during_comm_config: RawAuthDuringCommConfig,
 }
 
@@ -90,12 +97,19 @@ mod auth_during_comm {
     use crate::error::Error;
 
     #[derive(Deserialize, Debug)]
+    /// Configuration specific for auth during comm
     pub struct RawAuthDuringCommConfig {
+        /// URL to reach the ID Contact core directly
         core_url: String,
+        /// URL to allow user redirects to the widget
         widget_url: String,
+        /// Display name for this plugin, to be presented to user
         display_name: String,
+        /// Private key to sign widget parameters
         widget_signing_privkey: SignKeyConfig,
+        /// Secret for verifying guest tokens
         guest_signature_secret: String,
+        /// Secret for verifying host tokens
         host_signature_secret: String,
     }
 
