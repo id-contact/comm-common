@@ -1,38 +1,49 @@
 use crate::error::Error;
 
 use id_contact_jwt::{EncryptionKeyConfig, SignKeyConfig};
-use josekit::{
-    jwe::JweDecrypter,
-    jws::{alg::hmac::HmacJwsAlgorithm, JwsSigner, JwsVerifier},
-};
+use josekit::{jwe::JweDecrypter, jws::JwsVerifier};
 use serde::Deserialize;
 
 use std::convert::TryFrom;
 
+use self::auth_during_comm::{AuthDuringCommConfig, RawAuthDuringCommConfig};
+
 #[derive(Deserialize, Debug)]
-pub struct RawBaseConfig {
+pub struct RawConfig {
     internal_url: String,
     external_url: String,
 
     decryption_privkey: EncryptionKeyConfig,
     signature_pubkey: SignKeyConfig,
+
+    #[cfg(feature = "auth_during_comm")]
+    auth_during_comm_config: RawAuthDuringCommConfig,
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(try_from = "RawBaseConfig")]
-pub struct BaseConfig {
+#[serde(try_from = "RawConfig")]
+pub struct Config {
     internal_url: String,
     external_url: String,
 
     decrypter: Box<dyn JweDecrypter>,
     validator: Box<dyn JwsVerifier>,
+
+    #[cfg(feature = "auth_during_comm")]
+    auth_during_comm_config: AuthDuringCommConfig,
 }
 
 // This tryfrom can be removed once try_from for fields lands in serde
-impl TryFrom<RawBaseConfig> for BaseConfig {
+impl TryFrom<RawConfig> for Config {
     type Error = Error;
-    fn try_from(raw_config: RawBaseConfig) -> Result<BaseConfig, Error> {
-        Ok(BaseConfig {
+    fn try_from(raw_config: RawConfig) -> Result<Config, Error> {
+        #[cfg(feature = "auth_during_comm")]
+        let auth_during_comm_config =
+            AuthDuringCommConfig::try_from(raw_config.auth_during_comm_config)?;
+
+        Ok(Config {
+            #[cfg(feature = "auth_during_comm")]
+            auth_during_comm_config,
             internal_url: raw_config.internal_url,
             external_url: raw_config.external_url,
 
@@ -42,7 +53,7 @@ impl TryFrom<RawBaseConfig> for BaseConfig {
     }
 }
 
-impl BaseConfig {
+impl Config {
     pub fn decrypter(&self) -> &dyn JweDecrypter {
         self.decrypter.as_ref()
     }
@@ -58,84 +69,90 @@ impl BaseConfig {
     pub fn external_url(&self) -> &str {
         &self.external_url
     }
-}
-
-#[derive(Deserialize, Debug)]
-pub struct RawAuthDuringCommConfig {
-    #[serde(flatten)]
-    raw_base_config: RawBaseConfig,
-    core_url: String,
-    widget_url: String,
-    display_name: String,
-    widget_signing_privkey: SignKeyConfig,
-    guest_signature_secret: String,
-    host_signature_secret: String,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(try_from = "RawAuthDuringCommConfig")]
-pub struct AuthDuringCommConfig {
-    #[serde(flatten)]
-    base_config: BaseConfig,
-    core_url: String,
-    widget_url: String,
-    display_name: String,
-    widget_signer: Box<dyn JwsSigner>,
-    guest_validator: Box<dyn JwsVerifier>,
-    host_validator: Box<dyn JwsVerifier>,
-}
-
-// This tryfrom can be removed once try_from for fields lands in serde
-impl TryFrom<RawAuthDuringCommConfig> for AuthDuringCommConfig {
-    type Error = Error;
-    fn try_from(raw_config: RawAuthDuringCommConfig) -> Result<AuthDuringCommConfig, Error> {
-        let base_config = BaseConfig::try_from(raw_config.raw_base_config)?;
-        let guest_validator = HmacJwsAlgorithm::Hs256
-            .verifier_from_bytes(raw_config.guest_signature_secret)
-            .unwrap();
-        let host_validator = HmacJwsAlgorithm::Hs256
-            .verifier_from_bytes(raw_config.host_signature_secret)
-            .unwrap();
-
-        Ok(AuthDuringCommConfig {
-            base_config,
-            core_url: raw_config.core_url,
-            widget_url: raw_config.widget_url,
-            display_name: raw_config.display_name,
-
-            widget_signer: Box::<dyn JwsSigner>::try_from(raw_config.widget_signing_privkey)?,
-            guest_validator: Box::new(guest_validator),
-            host_validator: Box::new(host_validator),
-        })
+    #[cfg(feature = "auth_during_comm")]
+    pub fn auth_during_comm_config(&self) -> &AuthDuringCommConfig {
+        &self.auth_during_comm_config
     }
 }
 
-impl AuthDuringCommConfig {
-    pub fn base_config(&self) -> &BaseConfig {
-        &self.base_config
+
+#[cfg(feature = "auth_during_comm")]
+mod auth_during_comm {
+    use id_contact_jwt::SignKeyConfig;
+    use serde::Deserialize;
+    use std::convert::TryFrom;
+
+    use josekit::jws::{alg::hmac::HmacJwsAlgorithm, JwsSigner, JwsVerifier};
+
+    use crate::error::Error;
+
+    #[derive(Deserialize, Debug)]
+    pub struct RawAuthDuringCommConfig {
+        core_url: String,
+        widget_url: String,
+        display_name: String,
+        widget_signing_privkey: SignKeyConfig,
+        guest_signature_secret: String,
+        host_signature_secret: String,
     }
 
-    pub fn core_url(&self) -> &str {
-        &self.core_url
+    #[derive(Debug, Deserialize)]
+    #[serde(try_from = "RawAuthDuringCommConfig")]
+    pub struct AuthDuringCommConfig {
+        core_url: String,
+        widget_url: String,
+        display_name: String,
+        widget_signer: Box<dyn JwsSigner>,
+        guest_validator: Box<dyn JwsVerifier>,
+        host_validator: Box<dyn JwsVerifier>,
     }
 
-    pub fn widget_url(&self) -> &str {
-        &self.widget_url
+    // This tryfrom can be removed once try_from for fields lands in serde
+    impl TryFrom<RawAuthDuringCommConfig> for AuthDuringCommConfig {
+        type Error = Error;
+        fn try_from(raw_config: RawAuthDuringCommConfig) -> Result<AuthDuringCommConfig, Error> {
+            let guest_validator = HmacJwsAlgorithm::Hs256
+                .verifier_from_bytes(raw_config.guest_signature_secret)
+                .unwrap();
+            let host_validator = HmacJwsAlgorithm::Hs256
+                .verifier_from_bytes(raw_config.host_signature_secret)
+                .unwrap();
+
+            Ok(AuthDuringCommConfig {
+                core_url: raw_config.core_url,
+                widget_url: raw_config.widget_url,
+                display_name: raw_config.display_name,
+
+                widget_signer: Box::<dyn JwsSigner>::try_from(raw_config.widget_signing_privkey)?,
+                guest_validator: Box::new(guest_validator),
+                host_validator: Box::new(host_validator),
+            })
+        }
     }
 
-    pub fn display_name(&self) -> &str {
-        &self.display_name
-    }
+    impl AuthDuringCommConfig {
+        pub fn core_url(&self) -> &str {
+            &self.core_url
+        }
 
-    pub fn widget_signer(&self) -> &dyn JwsSigner {
-        self.widget_signer.as_ref()
-    }
+        pub fn widget_url(&self) -> &str {
+            &self.widget_url
+        }
 
-    pub fn guest_validator(&self) -> &dyn JwsVerifier {
-        self.guest_validator.as_ref()
-    }
+        pub fn display_name(&self) -> &str {
+            &self.display_name
+        }
 
-    pub fn host_validator(&self) -> &dyn JwsVerifier {
-        self.host_validator.as_ref()
+        pub fn widget_signer(&self) -> &dyn JwsSigner {
+            self.widget_signer.as_ref()
+        }
+
+        pub fn guest_validator(&self) -> &dyn JwsVerifier {
+            self.guest_validator.as_ref()
+        }
+
+        pub fn host_validator(&self) -> &dyn JwsVerifier {
+            self.host_validator.as_ref()
+        }
     }
 }
