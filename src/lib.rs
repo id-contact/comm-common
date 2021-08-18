@@ -18,6 +18,7 @@ pub mod prelude {
         AuthResultSet, AuthSelectParams, GuestAuthResult, 
     };
 
+    #[cfg(feature = "platform_token")]
     pub use crate::types::{
         GuestToken, HostToken, FromPlatformJwt
     };
