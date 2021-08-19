@@ -3,8 +3,8 @@ use rocket::{
     http::{ContentType, Status},
     Response,
 };
-use serde_json::json;
 use thiserror::Error;
+use serde_json::json;
 
 #[derive(Debug, Error)]
 /// General Error type, used to capture all kinds of common errors. Can be used to respond to requests
