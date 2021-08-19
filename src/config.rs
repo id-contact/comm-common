@@ -78,7 +78,7 @@ impl Config {
     pub fn external_url(&self) -> &str {
         match &self.external_url {
             Some(external_url) => external_url,
-            None => &self.internal_url
+            None => &self.internal_url,
         }
     }
     #[cfg(feature = "auth_during_comm")]

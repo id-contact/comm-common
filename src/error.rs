@@ -3,7 +3,7 @@ use rocket::{
     http::{ContentType, Status},
     Response,
 };
-use rocket_contrib::json;
+use serde_json::json;
 use thiserror::Error;
 
 #[derive(Debug, Error)]

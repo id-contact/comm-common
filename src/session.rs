@@ -4,7 +4,7 @@ use crate::{
     error::Error,
     types::{GuestToken, SessionDomain},
 };
-use rocket_contrib::{database, databases::postgres};
+use rocket_sync_db_pools::{database, postgres};
 use serde::{Deserialize, Serialize};
 
 #[database("session")]
