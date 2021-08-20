@@ -15,6 +15,8 @@ pub mod util;
 #[cfg(feature = "platform_token")]
 pub mod credetials;
 
+extern crate lazy_static;
+
 pub mod prelude {
     pub use crate::config::Config;
     pub use crate::error::Error;

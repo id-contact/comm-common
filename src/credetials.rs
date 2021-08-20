@@ -6,8 +6,12 @@ use crate::types::{
     Credentials, GuestAuthResult,
 };
 use serde_json;
+use serde::{Deserialize, Serialize};
 use lazy_static;
 use tera::{Context, Tera};
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct Translations(HashMap<String, String>);
 
 lazy_static! {
     pub static ref TEMPLATES: Tera =
