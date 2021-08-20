@@ -3,6 +3,7 @@ use rocket::{
     http::{ContentType, Status},
     Response,
 };
+use rocket_sync_db_pools::postgres;
 use serde_json::json;
 use thiserror::Error;
 
