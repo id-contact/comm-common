@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ translations.title }}</title>
+</head>
+<body>
+<main>
+  <div class="reason">
+    <h4>{{ translations.purpose }}</h4>
+    <p>
+      {{ translations[purpose]|default(value=purpose) }}
+    </p>
+  </div>
+  <div class="attributes">
+    <div>
+      <h4>
+        {{ translations.attributes }}
+      </h4>
+      {% include "attributes.html" %}
+    </div>
+  </div>
+</main>
+</body>
+</html>
