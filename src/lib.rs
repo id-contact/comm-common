@@ -28,10 +28,10 @@ pub mod prelude {
     pub use crate::types::{AuthSelectParams, Credentials, GuestAuthResult};
     pub use crate::util::random_string;
 
+    #[cfg(feature = "session_db")]
+    pub use crate::credetials::get_credentials_for_host;
     #[cfg(feature = "platform_token")]
-    pub use crate::credetials::{
-        collect_credentials, get_credentials_for_host, render_credentials,
-    };
+    pub use crate::credetials::{collect_credentials, render_credentials};
     #[cfg(feature = "platform_token")]
     pub use crate::types::{FromPlatformJwt, GuestToken, HostToken};
 }

@@ -31,15 +31,15 @@ pub struct RawConfig {
 #[derive(Debug, Deserialize)]
 #[serde(try_from = "RawConfig")]
 pub struct Config {
-    internal_url: String,
-    external_url: Option<String>,
+    pub internal_url: String,
+    pub external_url: Option<String>,
 
-    decrypter: Box<dyn JweDecrypter>,
-    validator: Box<dyn JwsVerifier>,
+    pub decrypter: Box<dyn JweDecrypter>,
+    pub validator: Box<dyn JwsVerifier>,
 
     #[cfg(feature = "auth_during_comm")]
     #[serde(flatten)]
-    auth_during_comm_config: AuthDuringCommConfig,
+    pub auth_during_comm_config: AuthDuringCommConfig,
 }
 
 // This tryfrom can be removed once try_from for fields lands in serde

@@ -1,10 +1,10 @@
 use crate::config::Config;
 use crate::error::Error;
+#[cfg(feature = "session_db")]
 use crate::session::{Session, SessionDBConn};
-use crate::types::{
-    platform_token::{FromPlatformJwt, HostToken},
-    Credentials, GuestAuthResult,
-};
+#[cfg(feature = "session_db")]
+use crate::types::platform_token::{FromPlatformJwt, HostToken};
+use crate::types::{Credentials, GuestAuthResult};
 use lazy_static;
 use serde::{Deserialize, Serialize};
 use serde_json;
@@ -24,57 +24,88 @@ lazy_static! {
 }
 
 pub fn collect_credentials(
-    guest_auth_results: Vec<GuestAuthResult>,
+    guest_auth_results: &Vec<GuestAuthResult>,
     config: &Config,
 ) -> Result<Vec<Credentials>, Error> {
     let mut credentials: Vec<Credentials> = vec![];
 
     for guest_auth_result in guest_auth_results.iter() {
-        let claims = match &guest_auth_result.auth_result {
-            Some(r) => {
+        if let Some(result) = &guest_auth_result.auth_result {
+            if let Some(attributes) =
                 id_contact_jwt::dangerous_decrypt_auth_result_without_verifying_expiration(
-                    r,
+                    result,
                     config.validator(),
                     config.decrypter(),
                 )?
                 .attributes
+            {
+                credentials.push(Credentials {
+                    name: guest_auth_result.name.clone(),
+                    purpose: guest_auth_result.purpose.clone(),
+                    attributes,
+                });
             }
-            None => None,
         };
-
-        credentials.push(Credentials {
-            name: guest_auth_result.name.clone(),
-            purpose: guest_auth_result.purpose.clone(),
-            attributes: claims,
-        });
     }
 
     Ok(credentials)
 }
 
+#[derive(PartialEq)]
 pub enum CredentialRenderType {
     Json,
     Html,
     HtmlPage,
 }
 
+#[derive(Serialize)]
+pub struct SortedCredentials {
+    pub purpose: Option<String>,
+    pub name: Option<String>,
+    pub attributes: Vec<(String, String)>,
+}
+
+impl From<Credentials> for SortedCredentials {
+    fn from(credentials: Credentials) -> Self {
+        let mut attributes = credentials
+            .attributes
+            .into_iter()
+            .collect::<Vec<(String, String)>>();
+
+        attributes.sort_by(|x, y| x.0.cmp(&y.0));
+
+        SortedCredentials {
+            purpose: credentials.purpose,
+            name: credentials.name,
+            attributes,
+        }
+    }
+}
+
 pub fn render_credentials(
     credentials: Vec<Credentials>,
     render_type: CredentialRenderType,
 ) -> Result<String, Error> {
+    if render_type == CredentialRenderType::Json {
+        return Ok(serde_json::to_string(&credentials)?);
+    }
+
     let mut context = Context::new();
     let translations: Translations = TRANSLATIONS.clone();
 
-    context.insert("translations", &translations);
-    context.insert("credentials", &credentials);
+    let sorted_credentials: Vec<SortedCredentials> = credentials
+        .into_iter()
+        .map(SortedCredentials::from)
+        .collect();
 
-    let result = match render_type {
-        CredentialRenderType::Json => serde_json::to_string(&credentials)?,
-        CredentialRenderType::Html => TEMPLATES.render("credentials.html", &context)?,
-        CredentialRenderType::HtmlPage => TEMPLATES.render("base.html", &context)?,
+    context.insert("translations", &translations);
+    context.insert("credentials", &sorted_credentials);
+
+    if render_type == CredentialRenderType::HtmlPage {
+        return Ok(TEMPLATES.render("base.html", &context)?);
     };
 
-    Ok(result)
+    Ok(TEMPLATES.render("credentials.html", &context)?)
 }
 
 #[cfg(feature = "session_db")]
@@ -102,7 +133,6 @@ pub async fn get_credentials_for_host(
 mod tests {
     use super::*;
 
-    use crate::config::RawConfig;
     use id_contact_jwt::{sign_and_encrypt_auth_result, EncryptionKeyConfig, SignKeyConfig};
     use std::collections::HashMap;
     use std::convert::TryFrom;
@@ -131,6 +161,10 @@ mod tests {
         fPrU6B65lZ28zsvIFVe5bnedj5vo0maimGBxkerNKItuT6M+8ga9VTHN
         -----END PRIVATE KEY-----
     ";
+
+    fn remove_whitespace(s: &str) -> String {
+        s.chars().filter(|c| !c.is_whitespace()).collect()
+    }
 
     #[test]
     fn roundtrip_test_ec() {
@@ -165,19 +199,36 @@ mod tests {
             auth_result: Some(jwe),
         }];
 
-        let config: Config = Config::try_from(RawConfig {
+        let config: Config = Config {
             internal_url: "https://example.com".to_string(),
             external_url: None,
             decrypter,
             validator,
-        })
-        .unwrap();
+        };
 
-        let credentials = collect_credentials(guest_auth_results, &config);
+        let credentials = collect_credentials(&guest_auth_results, &config).unwrap();
         let out_result = render_credentials(credentials, CredentialRenderType::Html).unwrap();
+        let result: &str = "<section><h4>HenkDieter</h4><dl><dt>age</dt><dd>42</dd><dt>E-mailadres</dt><dd>hd@example.com</dd></dl></section>";
 
-        let result: &str = "iets van html";
+        assert_eq!(remove_whitespace(result), remove_whitespace(&out_result));
 
-        assert_eq!(result, out_result);
+        let credentials = collect_credentials(&guest_auth_results, &config).unwrap();
+        let out_result = render_credentials(credentials, CredentialRenderType::HtmlPage).unwrap();
+        let result: &str = "<!doctypehtml><htmllang=\"en\"><head><metacharset=\"utf-8\"><metaname=\"viewport\"content=\"width=device-width,initial-scale=1\"><title>IDContactgegevens</title></head><body><main><divclass=\"attributes\"><div><h4>Geverifieerdegegevens</h4><section><h4>HenkDieter</h4><dl><dt>age</dt><dd>42</dd><dt>E-mailadres</dt><dd>hd@example.com</dd></dl></section></div></div></main></body></html>";
+
+        assert_eq!(remove_whitespace(result), remove_whitespace(&out_result));
+
+        let credentials = collect_credentials(&guest_auth_results, &config).unwrap();
+        let rendered = render_credentials(credentials, CredentialRenderType::Json).unwrap();
+        let result: serde_json::Value = serde_json::from_str(&rendered).unwrap();
+        let expected = serde_json::json! {
+            [{
+                "purpose":"test_purpose",
+                "name":"Henk Dieter",
+                "attributes":{"age":"42","email":"hd@example.com"}}
+            ]
+        };
+
+        assert_eq!(result, expected);
     }
 }

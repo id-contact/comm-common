@@ -7,18 +7,12 @@
 </head>
 <body>
 <main>
-  <div class="reason">
-    <h4>{{ translations.purpose }}</h4>
-    <p>
-      {{ translations[purpose]|default(value=purpose) }}
-    </p>
-  </div>
   <div class="attributes">
     <div>
       <h4>
         {{ translations.attributes }}
       </h4>
-      {% include "attributes.html" %}
+      {% include "credentials.html" %}
     </div>
   </div>
 </main>
