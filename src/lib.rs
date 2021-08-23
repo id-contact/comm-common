@@ -13,7 +13,7 @@ pub mod types;
 pub mod util;
 // credential collection and rendering
 #[cfg(feature = "platform_token")]
-pub mod credetials;
+pub mod credentials;
 #[cfg(feature = "platform_token")]
 #[macro_use]
 extern crate lazy_static;
@@ -29,9 +29,9 @@ pub mod prelude {
     pub use crate::util::random_string;
 
     #[cfg(feature = "session_db")]
-    pub use crate::credetials::get_credentials_for_host;
+    pub use crate::credentials::get_credentials_for_host;
     #[cfg(feature = "platform_token")]
-    pub use crate::credetials::{collect_credentials, render_credentials};
+    pub use crate::credentials::{collect_credentials, render_credentials};
     #[cfg(feature = "platform_token")]
     pub use crate::types::{FromPlatformJwt, GuestToken, HostToken};
 }
