@@ -126,7 +126,7 @@ pub async fn get_credentials_for_host(
         })
         .collect::<Vec<GuestAuthResult>>();
 
-    collect_credentials(guest_auth_results, config)
+    collect_credentials(&guest_auth_results, config)
 }
 
 #[cfg(test)]
