@@ -1,21 +1,21 @@
-use crate::config::{Config, RawConfig};
+use crate::config::Config;
 use crate::error::Error;
-use crate::session::Session;
+use crate::session::{Session, SessionDBConn};
 use crate::types::{
     platform_token::{FromPlatformJwt, HostToken},
     Credentials, GuestAuthResult,
 };
-use serde_json;
-use serde::{Deserialize, Serialize};
 use lazy_static;
+use serde::{Deserialize, Serialize};
+use serde_json;
+use std::collections::HashMap;
 use tera::{Context, Tera};
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Translations(HashMap<String, String>);
 
 lazy_static! {
-    pub static ref TEMPLATES: Tera =
-        { Tera::new("templates/*").expect("Could not load templates") };
+    pub static ref TEMPLATES: Tera = Tera::new("templates/*").expect("Could not load templates");
     pub static ref TRANSLATIONS: Translations = {
         let f = std::fs::File::open("translations.yml").expect("Could not find translation file");
 
@@ -27,26 +27,25 @@ pub fn collect_credentials(
     guest_auth_results: Vec<GuestAuthResult>,
     config: &Config,
 ) -> Result<Vec<Credentials>, Error> {
-    let credentials: Vec<Credentials> = vec![];
+    let mut credentials: Vec<Credentials> = vec![];
 
     for guest_auth_result in guest_auth_results.iter() {
-        let attributes = match guest_auth_result.auth_result {
+        let claims = match &guest_auth_result.auth_result {
             Some(r) => {
-                attributes =
-                    id_contact_jwt::dangerous_decrypt_auth_result_without_verifying_expiration(
-                        &guest_auth_result.auth_result,
-                        config.validator(),
-                        config.decrypter(),
-                    )
-                    .ok()
+                id_contact_jwt::dangerous_decrypt_auth_result_without_verifying_expiration(
+                    r,
+                    config.validator(),
+                    config.decrypter(),
+                )?
+                .attributes
             }
             None => None,
         };
 
         credentials.push(Credentials {
-            name: guest_auth_result.name,
-            purpose: guest_auth_result.purpose,
-            attributes,
+            name: guest_auth_result.name.clone(),
+            purpose: guest_auth_result.purpose.clone(),
+            attributes: claims,
         });
     }
 
@@ -69,11 +68,13 @@ pub fn render_credentials(
     context.insert("translations", &translations);
     context.insert("credentials", &credentials);
 
-    match render_type {
-        Json => serde_json::to_string(&credentials),
-        Html => TEMPLATES.render("credentials.html", &context)?,
-        HtmlPage => TEMPLATES.render("base.html", &context)?,
-    }
+    let result = match render_type {
+        CredentialRenderType::Json => serde_json::to_string(&credentials)?,
+        CredentialRenderType::Html => TEMPLATES.render("credentials.html", &context)?,
+        CredentialRenderType::HtmlPage => TEMPLATES.render("base.html", &context)?,
+    };
+
+    Ok(result)
 }
 
 #[cfg(feature = "session_db")]
@@ -81,23 +82,27 @@ pub async fn get_credentials_for_host(
     host_token: String,
     config: &Config,
     db: SessionDBConn,
-) -> Result<Credentials, Error> {
+) -> Result<Vec<Credentials>, Error> {
     let host_token = HostToken::from_platform_jwt(&host_token, config.validator())?;
     let sessions: Vec<Session> = Session::find_by_room_id(host_token.room_id, &db).await?;
 
-    let guest_auth_results = sessions.map(|session: Session| GuestAuthResult {
-        purpose: Some(session.purpose),
-        name: Some(session.guest_token.name),
-        auth_result: session.auth_result,
-    })?;
+    let guest_auth_results = sessions
+        .into_iter()
+        .map(|session: Session| GuestAuthResult {
+            purpose: Some(session.purpose),
+            name: Some(session.guest_token.name),
+            auth_result: session.auth_result,
+        })
+        .collect::<Vec<GuestAuthResult>>();
 
-    collect_credentials(guest_auth_results, config: &Config)
+    collect_credentials(guest_auth_results, config)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    use crate::config::RawConfig;
     use id_contact_jwt::{sign_and_encrypt_auth_result, EncryptionKeyConfig, SignKeyConfig};
     use std::collections::HashMap;
     use std::convert::TryFrom;
