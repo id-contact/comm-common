@@ -114,7 +114,10 @@ pub async fn get_credentials_for_host(
     config: &Config,
     db: SessionDBConn,
 ) -> Result<Vec<Credentials>, Error> {
-    let host_token = HostToken::from_platform_jwt(&host_token, config.auth_during_comm_config().host_validator())?;
+    let host_token = HostToken::from_platform_jwt(
+        &host_token,
+        config.auth_during_comm_config().host_validator(),
+    )?;
     let sessions: Vec<Session> = Session::find_by_room_id(host_token.room_id, &db).await?;
 
     let guest_auth_results = sessions
