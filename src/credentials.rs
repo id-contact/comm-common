@@ -6,6 +6,9 @@ use crate::session::{Session, SessionDBConn};
 use crate::types::platform_token::{FromPlatformJwt, HostToken};
 use crate::types::{Credentials, GuestAuthResult};
 use lazy_static;
+use rocket::response::content;
+use rocket::response::Responder;
+use rocket::{response, Request};
 use serde::{Deserialize, Serialize};
 use serde_json;
 use std::collections::HashMap;
@@ -82,12 +85,42 @@ impl From<Credentials> for SortedCredentials {
     }
 }
 
+#[derive(PartialEq)]
+pub struct RenderedCredentials {
+    content: String,
+    render_type: CredentialRenderType,
+}
+
+#[cfg(test)]
+impl RenderedCredentials {
+    pub(self) fn content(&self) -> &str {
+        &self.content
+    }
+}
+
+impl<'r> Responder<'r, 'static> for RenderedCredentials {
+    fn respond_to(self, req: &'r Request<'_>) -> response::Result<'static> {
+        let RenderedCredentials {
+            content,
+            render_type,
+        } = self;
+        if render_type == CredentialRenderType::Json {
+            return content::Json(content).respond_to(req);
+        }
+        content::Html(content).respond_to(req)
+    }
+}
+
 pub fn render_credentials(
     credentials: Vec<Credentials>,
     render_type: CredentialRenderType,
-) -> Result<String, Error> {
+) -> Result<RenderedCredentials, Error> {
     if render_type == CredentialRenderType::Json {
-        return Ok(serde_json::to_string(&credentials)?);
+        let content = serde_json::to_string(&credentials)?;
+        return Ok(RenderedCredentials {
+            content,
+            render_type,
+        });
     }
 
     let mut context = Context::new();
@@ -101,11 +134,16 @@ pub fn render_credentials(
     context.insert("translations", &translations);
     context.insert("credentials", &sorted_credentials);
 
-    if render_type == CredentialRenderType::HtmlPage {
-        return Ok(TEMPLATES.render("base.html", &context)?);
+    let content = if render_type == CredentialRenderType::HtmlPage {
+        TEMPLATES.render("base.html", &context)?
+    } else {
+        TEMPLATES.render("credentials.html", &context)?
     };
 
-    Ok(TEMPLATES.render("credentials.html", &context)?)
+    Ok(RenderedCredentials {
+        content,
+        render_type,
+    })
 }
 
 #[cfg(feature = "session_db")]
@@ -114,7 +152,10 @@ pub async fn get_credentials_for_host(
     config: &Config,
     db: SessionDBConn,
 ) -> Result<Vec<Credentials>, Error> {
-    let host_token = HostToken::from_platform_jwt(&host_token, config.validator())?;
+    let host_token = HostToken::from_platform_jwt(
+        &host_token,
+        config.auth_during_comm_config().host_validator(),
+    )?;
     let sessions: Vec<Session> = Session::find_by_room_id(host_token.room_id, &db).await?;
 
     let guest_auth_results = sessions
@@ -140,8 +181,10 @@ mod tests {
     use id_contact_proto::{AuthResult, AuthStatus};
     use josekit::{
         jwe::{JweDecrypter, JweEncrypter},
-        jws::{JwsSigner, JwsVerifier},
+        jws::{alg::hmac::HmacJwsAlgorithm, JwsSigner, JwsVerifier},
     };
+
+    use crate::config::AuthDuringCommConfig;
 
     const EC_PUBKEY: &str = r"
     type: EC
@@ -161,6 +204,8 @@ mod tests {
         fPrU6B65lZ28zsvIFVe5bnedj5vo0maimGBxkerNKItuT6M+8ga9VTHN
         -----END PRIVATE KEY-----
     ";
+    const HOST_SECRET: &str = "54f0a09305eaa1d3ffc3ccb6035e95871eecbfa964404332ffddad52d43bf7b1";
+    const GUEST_SECRET: &str = "9e4ed6fdc6f7b8fb78f500d3abf3a042412140703249e2fe5671ecdab7e694bb";
 
     fn remove_whitespace(s: &str) -> String {
         s.chars().filter(|c| !c.is_whitespace()).collect()
@@ -176,9 +221,18 @@ mod tests {
 
         let sig_config: SignKeyConfig = serde_yaml::from_str(EC_PRIVKEY).unwrap();
         let ver_config: SignKeyConfig = serde_yaml::from_str(EC_PUBKEY).unwrap();
+        let widget_sig_config: SignKeyConfig = serde_yaml::from_str(EC_PRIVKEY).unwrap();
 
         let signer = Box::<dyn JwsSigner>::try_from(sig_config).unwrap();
         let validator = Box::<dyn JwsVerifier>::try_from(ver_config).unwrap();
+
+        let widget_signer = Box::<dyn JwsSigner>::try_from(widget_sig_config).unwrap();
+        let guest_validator = HmacJwsAlgorithm::Hs256
+            .verifier_from_bytes(GUEST_SECRET)
+            .unwrap();
+        let host_validator = HmacJwsAlgorithm::Hs256
+            .verifier_from_bytes(HOST_SECRET)
+            .unwrap();
 
         let mut test_attributes: HashMap<String, String> = HashMap::new();
 
@@ -199,28 +253,41 @@ mod tests {
             auth_result: Some(jwe),
         }];
 
+        let auth_during_comm_config = AuthDuringCommConfig {
+            core_url: "https://example.com".to_string(),
+            widget_url: "https://example.com".to_string(),
+            display_name: "comm-common".to_string(),
+            widget_signer,
+            guest_validator: Box::new(guest_validator),
+            host_validator: Box::new(host_validator),
+        };
+
         let config: Config = Config {
             internal_url: "https://example.com".to_string(),
             external_url: None,
             decrypter,
             validator,
+            auth_during_comm_config,
         };
 
         let credentials = collect_credentials(&guest_auth_results, &config).unwrap();
         let out_result = render_credentials(credentials, CredentialRenderType::Html).unwrap();
         let result: &str = "<section><h4>HenkDieter</h4><dl><dt>age</dt><dd>42</dd><dt>E-mailadres</dt><dd>hd@example.com</dd></dl></section>";
 
-        assert_eq!(remove_whitespace(result), remove_whitespace(&out_result));
+        assert_eq!(
+            remove_whitespace(result),
+            remove_whitespace(out_result.content())
+        );
 
         let credentials = collect_credentials(&guest_auth_results, &config).unwrap();
         let out_result = render_credentials(credentials, CredentialRenderType::HtmlPage).unwrap();
         let result: &str = "<!doctypehtml><htmllang=\"en\"><head><metacharset=\"utf-8\"><metaname=\"viewport\"content=\"width=device-width,initial-scale=1\"><title>IDContactgegevens</title></head><body><main><divclass=\"attributes\"><div><h4>Geverifieerdegegevens</h4><section><h4>HenkDieter</h4><dl><dt>age</dt><dd>42</dd><dt>E-mailadres</dt><dd>hd@example.com</dd></dl></section></div></div></main></body></html>";
 
-        assert_eq!(remove_whitespace(result), remove_whitespace(&out_result));
+        assert_eq!(remove_whitespace(result), remove_whitespace(&out_result.content()));
 
         let credentials = collect_credentials(&guest_auth_results, &config).unwrap();
         let rendered = render_credentials(credentials, CredentialRenderType::Json).unwrap();
-        let result: serde_json::Value = serde_json::from_str(&rendered).unwrap();
+        let result: serde_json::Value = serde_json::from_str(&rendered.content()).unwrap();
         let expected = serde_json::json! {
             [{
                 "purpose":"test_purpose",

@@ -5,7 +5,7 @@ version = "0.1.0"
 edition = "2018"
 
 [features]
-auth_during_comm = []
+auth_during_comm = ["platform_token"]
 platform_token = []
 session_db = ["platform_token"]
 

@@ -7,7 +7,7 @@ use serde::Deserialize;
 use std::convert::TryFrom;
 
 #[cfg(feature = "auth_during_comm")]
-use self::auth_during_comm::{AuthDuringCommConfig, RawAuthDuringCommConfig};
+pub (crate) use self::auth_during_comm::{AuthDuringCommConfig, RawAuthDuringCommConfig};
 
 /// Configuration paramters as read directly fom config.toml file.
 #[derive(Deserialize, Debug)]
@@ -117,12 +117,12 @@ mod auth_during_comm {
     #[derive(Debug, Deserialize)]
     #[serde(try_from = "RawAuthDuringCommConfig")]
     pub struct AuthDuringCommConfig {
-        core_url: String,
-        widget_url: String,
-        display_name: String,
-        widget_signer: Box<dyn JwsSigner>,
-        guest_validator: Box<dyn JwsVerifier>,
-        host_validator: Box<dyn JwsVerifier>,
+        pub(crate) core_url: String,
+        pub(crate) widget_url: String,
+        pub(crate) display_name: String,
+        pub(crate) widget_signer: Box<dyn JwsSigner>,
+        pub(crate) guest_validator: Box<dyn JwsVerifier>,
+        pub(crate) host_validator: Box<dyn JwsVerifier>,
     }
 
     // This tryfrom can be removed once try_from for fields lands in serde
