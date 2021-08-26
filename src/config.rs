@@ -28,6 +28,7 @@ pub struct RawConfig {
     auth_during_comm_config: RawAuthDuringCommConfig,
 }
 
+// configuration container for a typical id-contact communication plugin
 #[derive(Debug, Deserialize)]
 #[serde(try_from = "RawConfig")]
 pub struct Config {
