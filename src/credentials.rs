@@ -26,7 +26,7 @@ lazy_static! {
     };
 }
 
-// convert a list of guest jwt's to a list of credentials
+/// convert a list of guest jwt's to a list of credentials
 pub fn collect_credentials(
     guest_auth_results: &[GuestAuthResult],
     config: &Config,
@@ -69,7 +69,7 @@ pub struct SortedCredentials {
     pub attributes: Vec<(String, String)>,
 }
 
-// sorted credentials are sorted by their name (key)
+/// sorted credentials are sorted by their name (key)
 impl From<Credentials> for SortedCredentials {
     fn from(credentials: Credentials) -> Self {
         let mut attributes = credentials
@@ -113,7 +113,7 @@ impl<'r> Responder<'r, 'static> for RenderedCredentials {
     }
 }
 
-// render a list of users and credentials to html or json
+/// render a list of users and credentials to html or json
 pub fn render_credentials(
     credentials: Vec<Credentials>,
     render_type: CredentialRenderType,
@@ -149,8 +149,8 @@ pub fn render_credentials(
     })
 }
 
-// retrieve authentication results for all users in a room
-// the id of the room is provided by a host jwt
+/// retrieve authentication results for all users in a room
+/// the id of the room is provided by a host jwt
 #[cfg(feature = "session_db")]
 pub async fn get_credentials_for_host(
     host_token: String,
