@@ -174,3 +174,69 @@ mod auth_during_comm {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Config;
+    use figment::providers::{Format, Toml};
+    use rocket::figment::Figment;
+
+    const TEST_CONFIG_VALID: &'static str = r#"
+[global]
+internal_url = "https://internal.example.com"
+external_url = "https://external.example.com"
+
+core_url = "https://core.example.com"
+widget_url = "https://widget.example.com"
+display_name = "Example Comm"
+guest_signature_secret = "fliepfliepfliepfliepfliepfliepfliepfliep"
+host_signature_secret = "flapflapflapflapflapflapflapflapflapflap"
+
+
+[global.widget_signing_privkey]
+type = "EC"
+key = """
+-----BEGIN PRIVATE KEY-----
+MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgJdHGkAfKUVshsNPQ
+5UA9sNCf74eALrLrtBQE1nDFlv+hRANCAARkuq4SKMntw/sr2ogcbsS8JOmHnc3i
+fPrU6B65lZ28zsvIFVe5bnedj5vo0maimGBxkerNKItuT6M+8ga9VTHN
+-----END PRIVATE KEY-----
+"""
+
+[global.decryption_privkey]
+type = "EC"
+key = """
+-----BEGIN PRIVATE KEY-----
+MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgJdHGkAfKUVshsNPQ
+5UA9sNCf74eALrLrtBQE1nDFlv+hRANCAARkuq4SKMntw/sr2ogcbsS8JOmHnc3i
+fPrU6B65lZ28zsvIFVe5bnedj5vo0maimGBxkerNKItuT6M+8ga9VTHN
+-----END PRIVATE KEY-----
+"""
+
+[global.signature_pubkey]
+type = "EC"
+key = """
+-----BEGIN PUBLIC KEY-----
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEZLquEijJ7cP7K9qIHG7EvCTph53N
+4nz61OgeuZWdvM7LyBVXuW53nY+b6NJmophgcZHqzSiLbk+jPvIGvVUxzQ==
+-----END PUBLIC KEY-----
+"""
+
+"#;
+
+    fn config_from_str(config: &str) -> Config {
+        let figment = Figment::from(rocket::Config::default())
+            .select(rocket::Config::DEFAULT_PROFILE)
+            .merge(Toml::string(config).nested());
+
+        figment.extract::<Config>().unwrap()
+    }
+
+    #[test]
+    fn test_valid_config() {
+        let config = config_from_str(TEST_CONFIG_VALID);
+
+        assert_eq!(config.internal_url, "https://internal.example.com");
+        assert_eq!(config.external_url.unwrap(), "https://external.example.com");
+    }
+}
