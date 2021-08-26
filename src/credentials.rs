@@ -283,7 +283,10 @@ mod tests {
         let out_result = render_credentials(credentials, CredentialRenderType::HtmlPage).unwrap();
         let result: &str = "<!doctypehtml><htmllang=\"en\"><head><metacharset=\"utf-8\"><metaname=\"viewport\"content=\"width=device-width,initial-scale=1\"><title>IDContactgegevens</title></head><body><main><divclass=\"attributes\"><div><h4>Geverifieerdegegevens</h4><section><h4>HenkDieter</h4><dl><dt>age</dt><dd>42</dd><dt>E-mailadres</dt><dd>hd@example.com</dd></dl></section></div></div></main></body></html>";
 
-        assert_eq!(remove_whitespace(result), remove_whitespace(&out_result.content()));
+        assert_eq!(
+            remove_whitespace(result),
+            remove_whitespace(&out_result.content())
+        );
 
         let credentials = collect_credentials(&guest_auth_results, &config).unwrap();
         let rendered = render_credentials(credentials, CredentialRenderType::Json).unwrap();

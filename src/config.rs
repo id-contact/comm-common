@@ -7,7 +7,7 @@ use serde::Deserialize;
 use std::convert::TryFrom;
 
 #[cfg(feature = "auth_during_comm")]
-pub (crate) use self::auth_during_comm::{AuthDuringCommConfig, RawAuthDuringCommConfig};
+pub(crate) use self::auth_during_comm::{AuthDuringCommConfig, RawAuthDuringCommConfig};
 
 /// Configuration paramters as read directly fom config.toml file.
 #[derive(Deserialize, Debug)]
