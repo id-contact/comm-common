@@ -44,9 +44,13 @@ lazy_static! {
         tera
     };
     pub static ref TRANSLATIONS: Translations = {
-        let f = std::fs::File::open("translations.yml").expect("Could not find translation file");
-
-        serde_yaml::from_reader(f).expect("Could not parse translations file")
+        if Path::new("nl.yml").exists() {
+            let f = std::fs::File::open("nl.yml").expect("Could not find translation file");
+            serde_yaml::from_reader(f).expect("Could not parse translations file")
+        } else {
+            serde_yaml::from_str(include_str!("translations/nl.yml"))
+                .expect("Could not load the translations file")
+        }
     };
 }
 
