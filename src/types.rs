@@ -22,11 +22,17 @@ pub struct AuthSelectParams {
 
 #[derive(Serialize, Debug)]
 pub struct GuestAuthResult {
-    pub attributes: Option<HashMap<String, String>>,
-    pub name: String,
+    pub purpose: Option<String>,
+    pub name: Option<String>,
+    pub auth_result: Option<String>,
 }
 
-pub type AuthResultSet = HashMap<String, GuestAuthResult>;
+#[derive(Serialize, Debug)]
+pub struct Credentials {
+    pub purpose: Option<String>,
+    pub name: Option<String>,
+    pub attributes: HashMap<String, String>,
+}
 
 #[cfg(feature = "platform_token")]
 pub use platform_token::*;
