@@ -12,13 +12,37 @@ use rocket::{response, Request};
 use serde::{Deserialize, Serialize};
 use serde_json;
 use std::collections::HashMap;
+use std::path::Path;
 use tera::{Context, Tera};
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Translations(HashMap<String, String>);
 
 lazy_static! {
-    pub static ref TEMPLATES: Tera = Tera::new("templates/*").expect("Could not load templates");
+    pub static ref TEMPLATES: Tera = {
+        let mut tera = Tera::default();
+
+        if Path::new("templates/base.html").exists() {
+            tera.add_template_file("templates/base.html", Some("base.html"))
+                .expect("Error loading custom base.html template");
+        } else {
+            tera.add_raw_template("base.html", include_str!("templates/base.html"))
+                .unwrap();
+        }
+
+        if Path::new("templates/credentials.html").exists() {
+            tera.add_template_file("templates/credentials.html", Some("credentials.html"))
+                .expect("Error loading custom credentials.html template");
+        } else {
+            tera.add_raw_template(
+                "credentials.html",
+                include_str!("templates/credentials.html"),
+            )
+            .unwrap();
+        }
+
+        tera
+    };
     pub static ref TRANSLATIONS: Translations = {
         let f = std::fs::File::open("translations.yml").expect("Could not find translation file");
 
