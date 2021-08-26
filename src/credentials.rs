@@ -27,7 +27,7 @@ lazy_static! {
 }
 
 pub fn collect_credentials(
-    guest_auth_results: &Vec<GuestAuthResult>,
+    guest_auth_results: &[GuestAuthResult],
     config: &Config,
 ) -> Result<Vec<Credentials>, Error> {
     let mut credentials: Vec<Credentials> = vec![];
@@ -212,7 +212,7 @@ mod tests {
     }
 
     #[test]
-    fn roundtrip_test_ec() {
+    fn render_credentials_test() {
         let enc_config: EncryptionKeyConfig = serde_yaml::from_str(EC_PUBKEY).unwrap();
         let dec_config: EncryptionKeyConfig = serde_yaml::from_str(EC_PRIVKEY).unwrap();
 

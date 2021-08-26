@@ -12,9 +12,9 @@ pub enum JwtError {
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
     #[error("24 Sessions JWT error: {0}")]
-    JWT(#[from] josekit::JoseError),
+    Jwt(#[from] josekit::JoseError),
     #[error("ID Contact JWE error: {0}")]
-    JWE(#[from] id_contact_jwt::Error),
+    Jwe(#[from] id_contact_jwt::Error),
 }
 
 /// Serialize and sign a set of AuthSelectParams for use in the auth-select menu
