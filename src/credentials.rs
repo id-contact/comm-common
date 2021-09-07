@@ -260,6 +260,7 @@ mod tests {
         let validator = Box::<dyn JwsVerifier>::try_from(ver_config).unwrap();
 
         let widget_signer = Box::<dyn JwsSigner>::try_from(widget_sig_config).unwrap();
+        let start_auth_signer = widget_signer.clone();
         let guest_validator = HmacJwsAlgorithm::Hs256
             .verifier_from_bytes(GUEST_SECRET)
             .unwrap();
@@ -291,6 +292,8 @@ mod tests {
             widget_url: "https://example.com".to_string(),
             display_name: "comm-common".to_string(),
             widget_signer,
+            start_auth_signer,
+            start_auth_key_id: "not-needed".into(),
             guest_validator: Box::new(guest_validator),
             host_validator: Box::new(host_validator),
         };
