@@ -28,6 +28,7 @@ pub struct RawConfig {
     auth_during_comm_config: RawAuthDuringCommConfig,
 }
 
+/// configuration container for a typical id-contact communication plugin
 #[derive(Debug, Deserialize)]
 #[serde(try_from = "RawConfig")]
 pub struct Config {
@@ -108,6 +109,10 @@ mod auth_during_comm {
         display_name: String,
         /// Private key to sign widget parameters
         widget_signing_privkey: SignKeyConfig,
+        /// Private key to sign start authenticate requests
+        start_auth_signing_privkey: SignKeyConfig,
+        /// Key Identifier of start authentication key
+        start_auth_key_id: String,
         /// Secret for verifying guest tokens
         guest_signature_secret: String,
         /// Secret for verifying host tokens
@@ -121,6 +126,8 @@ mod auth_during_comm {
         pub(crate) widget_url: String,
         pub(crate) display_name: String,
         pub(crate) widget_signer: Box<dyn JwsSigner>,
+        pub(crate) start_auth_signer: Box<dyn JwsSigner>,
+        pub(crate) start_auth_key_id: String,
         pub(crate) guest_validator: Box<dyn JwsVerifier>,
         pub(crate) host_validator: Box<dyn JwsVerifier>,
     }
@@ -142,6 +149,10 @@ mod auth_during_comm {
                 display_name: raw_config.display_name,
 
                 widget_signer: Box::<dyn JwsSigner>::try_from(raw_config.widget_signing_privkey)?,
+                start_auth_signer: Box::<dyn JwsSigner>::try_from(
+                    raw_config.start_auth_signing_privkey,
+                )?,
+                start_auth_key_id: raw_config.start_auth_key_id,
                 guest_validator: Box::new(guest_validator),
                 host_validator: Box::new(host_validator),
             })
@@ -163,6 +174,14 @@ mod auth_during_comm {
 
         pub fn widget_signer(&self) -> &dyn JwsSigner {
             self.widget_signer.as_ref()
+        }
+
+        pub fn start_auth_signer(&self) -> &dyn JwsSigner {
+            self.start_auth_signer.as_ref()
+        }
+
+        pub fn start_auth_key_id(&self) -> &str {
+            &self.start_auth_key_id
         }
 
         pub fn guest_validator(&self) -> &dyn JwsVerifier {
@@ -191,9 +210,19 @@ widget_url = "https://widget.example.com"
 display_name = "Example Comm"
 guest_signature_secret = "fliepfliepfliepfliepfliepfliepfliepfliep"
 host_signature_secret = "flapflapflapflapflapflapflapflapflapflap"
-
+start_auth_key_id = "example"
 
 [global.widget_signing_privkey]
+type = "EC"
+key = """
+-----BEGIN PRIVATE KEY-----
+MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgJdHGkAfKUVshsNPQ
+5UA9sNCf74eALrLrtBQE1nDFlv+hRANCAARkuq4SKMntw/sr2ogcbsS8JOmHnc3i
+fPrU6B65lZ28zsvIFVe5bnedj5vo0maimGBxkerNKItuT6M+8ga9VTHN
+-----END PRIVATE KEY-----
+"""
+
+[global.start_auth_signing_privkey]
 type = "EC"
 key = """
 -----BEGIN PRIVATE KEY-----
@@ -234,9 +263,39 @@ MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEZLquEijJ7cP7K9qIHG7EvCTph53N
 
     #[test]
     fn test_valid_config() {
-        let config = config_from_str(TEST_CONFIG_VALID);
+        let config: Config = config_from_str(TEST_CONFIG_VALID);
 
-        assert_eq!(config.internal_url, "https://internal.example.com");
-        assert_eq!(config.external_url.unwrap(), "https://external.example.com");
+        assert_eq!(config.internal_url(), "https://internal.example.com");
+        assert_eq!(config.external_url(), "https://external.example.com");
+
+        #[cfg(feature = "auth_during_comm")]
+        {
+            assert_eq!(
+                config.auth_during_comm_config().core_url(),
+                "https://core.example.com"
+            );
+            assert_eq!(
+                config.auth_during_comm_config().display_name(),
+                "Example Comm"
+            );
+
+            let message: [u8; 3] = [42, 42, 42];
+
+            let auth_during_comm_signature = config
+                .auth_during_comm_config()
+                .start_auth_signer()
+                .sign(&message)
+                .unwrap();
+
+            assert!(config.validator().verify(&message, &auth_during_comm_signature).is_ok());
+
+            let widget_signing_signature = config
+                .auth_during_comm_config()
+                .widget_signer()
+                .sign(&message)
+                .unwrap();
+
+            assert!(config.validator().verify(&message, &widget_signing_signature).is_ok());
+        }
     }
 }
