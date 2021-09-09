@@ -43,7 +43,6 @@ lazy_static! {
 
         tera
     };
-
     pub static ref TRANSLATIONS: Translations = {
         if Path::new("nl.yml").exists() {
             let f = std::fs::File::open("nl.yml").expect("Could not find translation file");

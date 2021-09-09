@@ -210,9 +210,19 @@ widget_url = "https://widget.example.com"
 display_name = "Example Comm"
 guest_signature_secret = "fliepfliepfliepfliepfliepfliepfliepfliep"
 host_signature_secret = "flapflapflapflapflapflapflapflapflapflap"
-
+start_auth_key_id = "example"
 
 [global.widget_signing_privkey]
+type = "EC"
+key = """
+-----BEGIN PRIVATE KEY-----
+MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgJdHGkAfKUVshsNPQ
+5UA9sNCf74eALrLrtBQE1nDFlv+hRANCAARkuq4SKMntw/sr2ogcbsS8JOmHnc3i
+fPrU6B65lZ28zsvIFVe5bnedj5vo0maimGBxkerNKItuT6M+8ga9VTHN
+-----END PRIVATE KEY-----
+"""
+
+[global.start_auth_signing_privkey]
 type = "EC"
 key = """
 -----BEGIN PRIVATE KEY-----
@@ -253,9 +263,39 @@ MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEZLquEijJ7cP7K9qIHG7EvCTph53N
 
     #[test]
     fn test_valid_config() {
-        let config = config_from_str(TEST_CONFIG_VALID);
+        let config: Config = config_from_str(TEST_CONFIG_VALID);
 
-        assert_eq!(config.internal_url, "https://internal.example.com");
-        assert_eq!(config.external_url.unwrap(), "https://external.example.com");
+        assert_eq!(config.internal_url(), "https://internal.example.com");
+        assert_eq!(config.external_url(), "https://external.example.com");
+
+        #[cfg(feature = "auth_during_comm")]
+        {
+            assert_eq!(
+                config.auth_during_comm_config().core_url(),
+                "https://core.example.com"
+            );
+            assert_eq!(
+                config.auth_during_comm_config().display_name(),
+                "Example Comm"
+            );
+
+            let message: [u8; 3] = [42, 42, 42];
+
+            let auth_during_comm_signature = config
+                .auth_during_comm_config()
+                .start_auth_signer()
+                .sign(&message)
+                .unwrap();
+
+            assert!(config.validator().verify(&message, &auth_during_comm_signature).is_ok());
+
+            let widget_signing_signature = config
+                .auth_during_comm_config()
+                .widget_signer()
+                .sign(&message)
+                .unwrap();
+
+            assert!(config.validator().verify(&message, &widget_signing_signature).is_ok());
+        }
     }
 }
