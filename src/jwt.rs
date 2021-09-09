@@ -1,4 +1,6 @@
 use crate::types::AuthSelectParams;
+#[cfg(feature = "auth_during_comm")]
+use id_contact_proto::StartRequestAuthOnly;
 use josekit::{
     jws::{JwsHeader, JwsSigner},
     jwt::JwtPayload,
@@ -12,9 +14,30 @@ pub enum JwtError {
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
     #[error("24 Sessions JWT error: {0}")]
-    JWT(#[from] josekit::JoseError),
+    Jwt(#[from] josekit::JoseError),
     #[error("ID Contact JWE error: {0}")]
-    JWE(#[from] id_contact_jwt::Error),
+    Jwe(#[from] id_contact_jwt::Error),
+}
+
+#[cfg(feature = "auth_during_comm")]
+pub fn sign_start_auth_request(
+    request: StartRequestAuthOnly,
+    kid: &str,
+    signer: &dyn JwsSigner,
+) -> Result<String, JwtError> {
+    let mut sig_header = JwsHeader::new();
+    sig_header.set_token_type("JWT");
+    sig_header.set_key_id(kid);
+    let mut sig_payload = JwtPayload::new();
+    sig_payload.set_claim("request", Some(serde_json::to_value(request)?))?;
+    sig_payload.set_issued_at(&std::time::SystemTime::now());
+    sig_payload
+        .set_expires_at(&(std::time::SystemTime::now() + std::time::Duration::from_secs(5 * 60)));
+    Ok(josekit::jwt::encode_with_signer(
+        &sig_payload,
+        &sig_header,
+        signer,
+    )?)
 }
 
 /// Serialize and sign a set of AuthSelectParams for use in the auth-select menu

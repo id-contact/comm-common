@@ -12,6 +12,7 @@ use rocket::{response, Request};
 use serde::{Deserialize, Serialize};
 use serde_json;
 use std::collections::HashMap;
+use std::path::Path;
 use tera::{Context, Tera};
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -44,14 +45,19 @@ lazy_static! {
     };
 
     pub static ref TRANSLATIONS: Translations = {
-        let f = std::fs::File::open("translations.yml").expect("Could not find translation file");
-
-        serde_yaml::from_reader(f).expect("Could not parse translations file")
+        if Path::new("nl.yml").exists() {
+            let f = std::fs::File::open("nl.yml").expect("Could not find translation file");
+            serde_yaml::from_reader(f).expect("Could not parse translations file")
+        } else {
+            serde_yaml::from_str(include_str!("translations/nl.yml"))
+                .expect("Could not load the translations file")
+        }
     };
 }
 
+/// convert a list of guest jwt's to a list of credentials
 pub fn collect_credentials(
-    guest_auth_results: &Vec<GuestAuthResult>,
+    guest_auth_results: &[GuestAuthResult],
     config: &Config,
 ) -> Result<Vec<Credentials>, Error> {
     let mut credentials: Vec<Credentials> = vec![];
@@ -92,6 +98,7 @@ pub struct SortedCredentials {
     pub attributes: Vec<(String, String)>,
 }
 
+/// sorted credentials are sorted by their name (key)
 impl From<Credentials> for SortedCredentials {
     fn from(credentials: Credentials) -> Self {
         let mut attributes = credentials
@@ -135,6 +142,7 @@ impl<'r> Responder<'r, 'static> for RenderedCredentials {
     }
 }
 
+/// render a list of users and credentials to html or json
 pub fn render_credentials(
     credentials: Vec<Credentials>,
     render_type: CredentialRenderType,
@@ -170,6 +178,8 @@ pub fn render_credentials(
     })
 }
 
+/// retrieve authentication results for all users in a room
+/// the id of the room is provided by a host jwt
 #[cfg(feature = "session_db")]
 pub async fn get_credentials_for_host(
     host_token: String,
@@ -236,7 +246,7 @@ mod tests {
     }
 
     #[test]
-    fn roundtrip_test_ec() {
+    fn render_credentials_test() {
         let enc_config: EncryptionKeyConfig = serde_yaml::from_str(EC_PUBKEY).unwrap();
         let dec_config: EncryptionKeyConfig = serde_yaml::from_str(EC_PRIVKEY).unwrap();
 
@@ -251,6 +261,7 @@ mod tests {
         let validator = Box::<dyn JwsVerifier>::try_from(ver_config).unwrap();
 
         let widget_signer = Box::<dyn JwsSigner>::try_from(widget_sig_config).unwrap();
+        let start_auth_signer = widget_signer.clone();
         let guest_validator = HmacJwsAlgorithm::Hs256
             .verifier_from_bytes(GUEST_SECRET)
             .unwrap();
@@ -282,6 +293,8 @@ mod tests {
             widget_url: "https://example.com".to_string(),
             display_name: "comm-common".to_string(),
             widget_signer,
+            start_auth_signer,
+            start_auth_key_id: "not-needed".into(),
             guest_validator: Box::new(guest_validator),
             host_validator: Box::new(host_validator),
         };
