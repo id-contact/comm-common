@@ -92,11 +92,27 @@ impl Config {
 mod auth_during_comm {
     use id_contact_jwt::SignKeyConfig;
     use serde::Deserialize;
-    use std::convert::TryFrom;
+    use std::{convert::TryFrom, fmt::Debug};
 
     use josekit::jws::{alg::hmac::HmacJwsAlgorithm, JwsSigner, JwsVerifier};
 
     use crate::error::Error;
+
+    #[derive(Deserialize)]
+    #[serde(from = "String")]
+    struct TokenSecret(String);
+
+    impl From<String> for TokenSecret {
+        fn from(value: String) -> Self {
+            TokenSecret(value)
+        }
+    }
+
+    impl Debug for TokenSecret {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.debug_struct("TokenSecret").finish()
+        }
+    }
 
     #[derive(Deserialize, Debug)]
     /// Configuration specific for auth during comm
@@ -114,9 +130,9 @@ mod auth_during_comm {
         /// Key Identifier of start authentication key
         start_auth_key_id: String,
         /// Secret for verifying guest tokens
-        guest_signature_secret: String,
+        guest_signature_secret: TokenSecret,
         /// Secret for verifying host tokens
-        host_signature_secret: String,
+        host_signature_secret: TokenSecret,
     }
 
     #[derive(Debug, Deserialize)]
@@ -137,10 +153,10 @@ mod auth_during_comm {
         type Error = Error;
         fn try_from(raw_config: RawAuthDuringCommConfig) -> Result<AuthDuringCommConfig, Error> {
             let guest_validator = HmacJwsAlgorithm::Hs256
-                .verifier_from_bytes(raw_config.guest_signature_secret)
+                .verifier_from_bytes(raw_config.guest_signature_secret.0)
                 .unwrap();
             let host_validator = HmacJwsAlgorithm::Hs256
-                .verifier_from_bytes(raw_config.host_signature_secret)
+                .verifier_from_bytes(raw_config.host_signature_secret.0)
                 .unwrap();
 
             Ok(AuthDuringCommConfig {
@@ -190,6 +206,25 @@ mod auth_during_comm {
 
         pub fn host_validator(&self) -> &dyn JwsVerifier {
             self.host_validator.as_ref()
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use josekit::jws::alg::hmac::HmacJwsAlgorithm;
+
+        use super::TokenSecret;
+
+        #[test]
+        fn test_log_hiding() {
+            let test_secret = TokenSecret("test1234123412341234123412341234".into());
+            assert_eq!(format!("{:?}", test_secret), "TokenSecret");
+
+            // Cannary test for something going wrong in the jose library
+            let test_verifier = HmacJwsAlgorithm::Hs256
+                .verifier_from_bytes(test_secret.0)
+                .unwrap();
+            assert_eq!(format!("{:?}", test_verifier), "HmacJwsVerifier { algorithm: Hs256, private_key: PKey { algorithm: \"HMAC\" }, key_id: None }");
         }
     }
 }
