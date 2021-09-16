@@ -301,6 +301,7 @@ mod tests {
         let config: Config = Config {
             internal_url: "https://example.com".to_string(),
             external_url: None,
+            sentry_dsn: None,
             decrypter,
             validator,
             auth_during_comm_config,

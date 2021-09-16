@@ -16,6 +16,8 @@ pub struct RawConfig {
     internal_url: String,
     /// External-facing URL. Defaults to Internal-facing if not set
     external_url: Option<String>,
+    /// Sentry DSN
+    sentry_dsn: Option<String>,
 
     /// Private key used to decrypt ID Contact JWEs
     decryption_privkey: EncryptionKeyConfig,
@@ -34,6 +36,7 @@ pub struct RawConfig {
 pub struct Config {
     pub internal_url: String,
     pub external_url: Option<String>,
+    pub sentry_dsn: Option<String>,
 
     pub decrypter: Box<dyn JweDecrypter>,
     pub validator: Box<dyn JwsVerifier>,
@@ -56,6 +59,7 @@ impl TryFrom<RawConfig> for Config {
             auth_during_comm_config,
             internal_url: raw_config.internal_url,
             external_url: raw_config.external_url,
+            sentry_dsn: raw_config.sentry_dsn,
 
             decrypter: Box::<dyn JweDecrypter>::try_from(raw_config.decryption_privkey)?,
             validator: Box::<dyn JwsVerifier>::try_from(raw_config.signature_pubkey)?,
@@ -82,6 +86,11 @@ impl Config {
             None => &self.internal_url,
         }
     }
+
+    pub fn sentry_dsn(&self) -> Option<&str> {
+        self.sentry_dsn.as_deref()
+    }
+
     #[cfg(feature = "auth_during_comm")]
     pub fn auth_during_comm_config(&self) -> &AuthDuringCommConfig {
         &self.auth_during_comm_config
