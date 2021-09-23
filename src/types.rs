@@ -161,6 +161,6 @@ mod tests {
         assert_eq!(id, "1");
         assert!(matches!(domain, SessionDomain::User));
         assert_eq!(room_id, "16");
-        assert_eq!(instance, "tweedegolf.com");
+        assert_eq!(instance, "tweedegolf.nl");
     }
 }
