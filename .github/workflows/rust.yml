@@ -27,7 +27,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Test
-      run: cargo fmt -- --check && cargo check --all-features && cargo test --all-features
+      run: cargo fmt -- --check && TEST_DB=postgres://postgres:postgres@localhost:5432/postgres cargo check --all-features && cargo test --all-features
     - run: rustup component add clippy
     - uses: actions-rs/clippy-check@v1
       with:
