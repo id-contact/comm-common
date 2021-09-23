@@ -149,7 +149,7 @@ mod tests {
         assert_eq!(name, "Unknown");
         assert_eq!(room_id, "16");
         assert_eq!(instance, "tweedegolf.nl");
-        
+
         let HostToken {
             id,
             domain,

@@ -287,7 +287,10 @@ MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEZLquEijJ7cP7K9qIHG7EvCTph53N
                 .sign(&message)
                 .unwrap();
 
-            assert!(config.validator().verify(&message, &auth_during_comm_signature).is_ok());
+            assert!(config
+                .validator()
+                .verify(&message, &auth_during_comm_signature)
+                .is_ok());
 
             let widget_signing_signature = config
                 .auth_during_comm_config()
@@ -295,7 +298,10 @@ MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEZLquEijJ7cP7K9qIHG7EvCTph53N
                 .sign(&message)
                 .unwrap();
 
-            assert!(config.validator().verify(&message, &widget_signing_signature).is_ok());
+            assert!(config
+                .validator()
+                .verify(&message, &widget_signing_signature)
+                .is_ok());
         }
     }
 }
