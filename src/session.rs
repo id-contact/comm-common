@@ -164,3 +164,52 @@ pub async fn clean_db(db: &SessionDBConn) -> Result<(), Error> {
     .await?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use figment::{
+        providers::{Format, Toml},
+        Figment,
+    };
+    use serial_test::serial;
+
+    use crate::{prelude::SessionDBConn, session::clean_db};
+
+    #[test]
+    // this ensures test is not parallelised with other serial tests, ensuring only one database test is run at a time.
+    #[serial]
+    fn test_sessions() {
+        if let Some(test_db) = option_env!("TEST_DB") {
+            tokio_test::block_on(async {
+                // Easiest (perhaps only) way to get a SessionDBConn is to actually get us a rocket instance that has ignited.
+                // this is to deal with all the rewrites rocket does on that struct.
+                let figment = Figment::from(rocket::Config::default())
+                    .select(rocket::Config::DEBUG_PROFILE)
+                    .merge(
+                        Toml::string(&format!(
+                            r#"
+[global.databases]
+session = {{ url = "{}" }}
+"#,
+                            test_db
+                        ))
+                        .nested(),
+                    );
+                let rocket = rocket::custom(figment)
+                    .attach(SessionDBConn::fairing())
+                    .ignite()
+                    .await
+                    .unwrap();
+                let db_session = SessionDBConn::get_one(&rocket).await.unwrap();
+                db_session
+                    .run(|c| {
+                        c.batch_execute(include_str!("../schema.sql")).unwrap();
+                        println!("Database prepared");
+                    })
+                    .await;
+                // Actual code under test starts here
+                clean_db(&db_session).await.unwrap();
+            });
+        }
+    }
+}

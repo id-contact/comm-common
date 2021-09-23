@@ -147,7 +147,13 @@ mod tests {
 
         let (payload, _) = josekit::jwt::decode_with_verifier(result, verifier.as_ref()).unwrap();
         assert_eq!(payload.claim("purpose").unwrap().as_str().unwrap(), "test");
-        assert_eq!(payload.claim("start_url").unwrap().as_str().unwrap(), "https://example.com");
-        assert_eq!(payload.claim("display_name").unwrap().as_str().unwrap(), "bla");
+        assert_eq!(
+            payload.claim("start_url").unwrap().as_str().unwrap(),
+            "https://example.com"
+        );
+        assert_eq!(
+            payload.claim("display_name").unwrap().as_str().unwrap(),
+            "bla"
+        );
     }
 }

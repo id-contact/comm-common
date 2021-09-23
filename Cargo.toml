@@ -5,6 +5,7 @@ version = "0.1.0"
 edition = "2018"
 
 [features]
+default = ["auth_during_comm", "session_db", "platform_token"]
 auth_during_comm = ["platform_token"]
 platform_token = []
 session_db = ["platform_token"]
@@ -27,3 +28,8 @@ strum_macros = "0.21.1"
 rand = "0.8.4"
 tera = "1"
 lazy_static = "1.4.0"
+
+[dev-dependencies]
+serial_test = "0.4.0"
+tokio-test = "0.4.2"
+figment = { version = "0.10.5", features = ["env", "toml", "json"] }
