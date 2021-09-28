@@ -21,7 +21,7 @@ pub struct RawConfig {
 
     /// Private key used to decrypt ID Contact JWEs
     decryption_privkey: EncryptionKeyConfig,
-    /// Public key used to sign ID Contact JWSs
+    /// Public key used to verify ID Contact JWSs
     signature_pubkey: SignKeyConfig,
 
     #[cfg(feature = "auth_during_comm")]
@@ -39,7 +39,7 @@ pub struct Config {
     pub sentry_dsn: Option<String>,
 
     pub decrypter: Box<dyn JweDecrypter>,
-    pub validator: Box<dyn JwsVerifier>,
+    pub verifier: Box<dyn JwsVerifier>,
 
     #[cfg(feature = "auth_during_comm")]
     #[serde(flatten)]
@@ -62,7 +62,7 @@ impl TryFrom<RawConfig> for Config {
             sentry_dsn: raw_config.sentry_dsn,
 
             decrypter: Box::<dyn JweDecrypter>::try_from(raw_config.decryption_privkey)?,
-            validator: Box::<dyn JwsVerifier>::try_from(raw_config.signature_pubkey)?,
+            verifier: Box::<dyn JwsVerifier>::try_from(raw_config.signature_pubkey)?,
         })
     }
 }
@@ -72,8 +72,8 @@ impl Config {
         self.decrypter.as_ref()
     }
 
-    pub fn validator(&self) -> &dyn JwsVerifier {
-        self.validator.as_ref()
+    pub fn verifier(&self) -> &dyn JwsVerifier {
+        self.verifier.as_ref()
     }
 
     pub fn internal_url(&self) -> &str {
@@ -153,18 +153,18 @@ mod auth_during_comm {
         pub(crate) widget_signer: Box<dyn JwsSigner>,
         pub(crate) start_auth_signer: Box<dyn JwsSigner>,
         pub(crate) start_auth_key_id: String,
-        pub(crate) guest_validator: Box<dyn JwsVerifier>,
-        pub(crate) host_validator: Box<dyn JwsVerifier>,
+        pub(crate) guest_verifier: Box<dyn JwsVerifier>,
+        pub(crate) host_verifier: Box<dyn JwsVerifier>,
     }
 
     // This tryfrom can be removed once try_from for fields lands in serde
     impl TryFrom<RawAuthDuringCommConfig> for AuthDuringCommConfig {
         type Error = Error;
         fn try_from(raw_config: RawAuthDuringCommConfig) -> Result<AuthDuringCommConfig, Error> {
-            let guest_validator = HmacJwsAlgorithm::Hs256
+            let guest_verifier = HmacJwsAlgorithm::Hs256
                 .verifier_from_bytes(raw_config.guest_signature_secret.0)
                 .unwrap();
-            let host_validator = HmacJwsAlgorithm::Hs256
+            let host_verifier = HmacJwsAlgorithm::Hs256
                 .verifier_from_bytes(raw_config.host_signature_secret.0)
                 .unwrap();
 
@@ -178,8 +178,8 @@ mod auth_during_comm {
                     raw_config.start_auth_signing_privkey,
                 )?,
                 start_auth_key_id: raw_config.start_auth_key_id,
-                guest_validator: Box::new(guest_validator),
-                host_validator: Box::new(host_validator),
+                guest_verifier: Box::new(guest_verifier),
+                host_verifier: Box::new(host_verifier),
             })
         }
     }
@@ -209,12 +209,12 @@ mod auth_during_comm {
             &self.start_auth_key_id
         }
 
-        pub fn guest_validator(&self) -> &dyn JwsVerifier {
-            self.guest_validator.as_ref()
+        pub fn guest_verifier(&self) -> &dyn JwsVerifier {
+            self.guest_verifier.as_ref()
         }
 
-        pub fn host_validator(&self) -> &dyn JwsVerifier {
-            self.host_validator.as_ref()
+        pub fn host_verifier(&self) -> &dyn JwsVerifier {
+            self.host_verifier.as_ref()
         }
     }
 

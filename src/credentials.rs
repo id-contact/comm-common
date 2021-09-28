@@ -66,7 +66,7 @@ pub fn collect_credentials(
             if let Some(attributes) =
                 id_contact_jwt::dangerous_decrypt_auth_result_without_verifying_expiration(
                     result,
-                    config.validator(),
+                    config.verifier(),
                     config.decrypter(),
                 )?
                 .attributes
@@ -187,7 +187,7 @@ pub async fn get_credentials_for_host(
 ) -> Result<Vec<Credentials>, Error> {
     let host_token = HostToken::from_platform_jwt(
         &host_token,
-        config.auth_during_comm_config().host_validator(),
+        config.auth_during_comm_config().host_verifier(),
     )?;
     let sessions: Vec<Session> = Session::find_by_room_id(host_token.room_id, &db).await?;
 
@@ -257,14 +257,14 @@ mod tests {
         let widget_sig_config: SignKeyConfig = serde_yaml::from_str(EC_PRIVKEY).unwrap();
 
         let signer = Box::<dyn JwsSigner>::try_from(sig_config).unwrap();
-        let validator = Box::<dyn JwsVerifier>::try_from(ver_config).unwrap();
+        let verifier = Box::<dyn JwsVerifier>::try_from(ver_config).unwrap();
 
         let widget_signer = Box::<dyn JwsSigner>::try_from(widget_sig_config).unwrap();
         let start_auth_signer = widget_signer.clone();
-        let guest_validator = HmacJwsAlgorithm::Hs256
+        let guest_verifier = HmacJwsAlgorithm::Hs256
             .verifier_from_bytes(GUEST_SECRET)
             .unwrap();
-        let host_validator = HmacJwsAlgorithm::Hs256
+        let host_verifier = HmacJwsAlgorithm::Hs256
             .verifier_from_bytes(HOST_SECRET)
             .unwrap();
 
@@ -294,8 +294,8 @@ mod tests {
             widget_signer,
             start_auth_signer,
             start_auth_key_id: "not-needed".into(),
-            guest_validator: Box::new(guest_validator),
-            host_validator: Box::new(host_validator),
+            guest_verifier: Box::new(guest_verifier),
+            host_verifier: Box::new(host_verifier),
         };
 
         let config: Config = Config {
@@ -303,7 +303,7 @@ mod tests {
             external_url: None,
             sentry_dsn: None,
             decrypter,
-            validator,
+            verifier,
             auth_during_comm_config,
         };
 
