@@ -4,11 +4,10 @@ use crate::{
     error::Error,
     types::{GuestToken, SessionDomain},
 };
-use rocket_sync_db_pools::{database, postgres};
+use rocket_sync_db_pools::postgres;
 use serde::{Deserialize, Serialize};
 
-#[database("session")]
-pub struct SessionDBConn(postgres::Client);
+pub use db::*;
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Session {
@@ -163,4 +162,87 @@ pub async fn clean_db(db: &SessionDBConn) -> Result<(), Error> {
     })
     .await?;
     Ok(())
+}
+#[cfg(not(test))]
+mod db {
+    use rocket_sync_db_pools::{database, postgres};
+
+    #[database("session")]
+    pub struct SessionDBConn(postgres::Client);
+}
+
+#[cfg(test)]
+mod db {
+    use rocket_sync_db_pools::postgres;
+    use std::cell::RefCell;
+
+    #[cfg(test)]
+    pub struct SessionDBConn(RefCell<postgres::Client>);
+
+    #[cfg(test)]
+    impl SessionDBConn {
+        pub fn new(c: postgres::Client) -> Self {
+            Self(RefCell::new(c))
+        }
+
+        pub async fn run<T: Send, F: Sync + Fn(&mut postgres::Client) -> T>(&self, f: F) -> T {
+            f(&mut self.0.borrow_mut())
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rocket_sync_db_pools::postgres::{self, NoTls};
+
+    use crate::prelude::GuestToken;
+
+    use super::{Session, SessionDBConn};
+    fn init_database() -> SessionDBConn {
+        let client: postgres::Client =
+            postgres::Client::connect("postgresql://tg@localhost:5432/tg", NoTls).unwrap();
+        SessionDBConn::new(client)
+    }
+
+    #[test]
+    fn clean_db_test() {
+        let db = init_database();
+
+        const ROOM_ID: &str = "987-654-321";
+        const ATTR_ID: &str = "123465789";
+
+        let guest_token = GuestToken {
+            id: "123-456-789".to_owned(),
+            domain: crate::types::SessionDomain::Guest,
+            redirect_url: "idcontact.nl".to_owned(),
+            name: "Test Id Contact".to_owned(),
+            room_id: ROOM_ID.to_owned(),
+            instance: "icontact.nl".to_owned(),
+        };
+
+        let s = Session {
+            guest_token: guest_token,
+            auth_result: None,
+            attr_id: ATTR_ID.to_owned(),
+            purpose: "test".to_owned(),
+        };
+
+        smol::block_on(async {
+            s.persist(&db).await.unwrap();
+            Session::register_auth_result(
+                ATTR_ID.to_owned(),
+                "invalid_auth_result".to_owned(),
+                &db,
+            )
+            .await
+            .unwrap();
+
+            let sessions = Session::find_by_room_id(ROOM_ID.to_owned(), &db)
+                .await
+                .unwrap();
+
+            assert_eq!(sessions.len(), 1);
+            assert_eq!(sessions[0].auth_result, Some("invalid_auth_result".to_owned()))
+        });
+    }
 }
