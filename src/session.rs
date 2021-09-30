@@ -204,7 +204,7 @@ mod tests {
 
     async fn init_database_connection() -> SessionDBConn {
         let client: postgres::Client =
-            postgres::Client::connect("postgresql://postgres@localhost:5432/postgres", NoTls)
+            postgres::Client::connect("postgres://postgres:postgres@localhost:5432/postgres", NoTls)
                 .unwrap();
         let db = SessionDBConn::new(client);
 
