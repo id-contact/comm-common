@@ -26,8 +26,6 @@ jobs:
           - 5432:5432
     steps:
     - uses: actions/checkout@v2
-    - name: Setup Test
-      run: 
     - name: Test
       run: cargo fmt -- --check && cargo check --all-features && cargo test --all-features
     - run: rustup component add clippy
