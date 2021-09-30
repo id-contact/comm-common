@@ -195,20 +195,19 @@ mod db {
 
 #[cfg(test)]
 mod tests {
-    use super::{Session, SessionDBConn};
-    use crate::prelude::GuestToken;
+    use super::{clean_db, Session, SessionDBConn};
+    use crate::prelude::{random_string, GuestToken};
     use rocket_sync_db_pools::postgres::{self, NoTls};
-
-    const ROOM_ID: &str = "987-654-321";
-    const ATTR_ID: &str = "123465789";
+    use serial_test::serial;
 
     async fn init_database_connection() -> SessionDBConn {
-        let client: postgres::Client = postgres::Client::connect(
-            "postgres://postgres:postgres@localhost:5432/postgres",
-            NoTls,
-        )
-        .unwrap();
-        let db = SessionDBConn::new(client);
+        let db = SessionDBConn::new(
+            postgres::Client::connect(
+                "postgres://postgres:postgres@localhost:5432/postgres",
+                NoTls,
+            )
+            .unwrap(),
+        );
 
         let sql = include_str!("../schema.sql");
 
@@ -219,39 +218,79 @@ mod tests {
         db
     }
 
-    fn bogus_session() -> Session {
+    fn bogus_session(id: Option<String>, room_id: Option<String>) -> Session {
         let guest_token = GuestToken {
-            id: "123-456-789".to_owned(),
+            id: id.unwrap_or_else(|| random_string(32)),
             domain: crate::types::SessionDomain::Guest,
             redirect_url: "idcontact.nl".to_owned(),
             name: "Test Id Contact".to_owned(),
-            room_id: ROOM_ID.to_owned(),
+            room_id: room_id.unwrap_or_else(|| random_string(32)),
             instance: "icontact.nl".to_owned(),
         };
 
         Session {
             guest_token: guest_token,
             auth_result: None,
-            attr_id: ATTR_ID.to_owned(),
+            attr_id: random_string(32),
             purpose: "test".to_owned(),
         }
     }
 
+    async fn insert_session_with_age(s: &Session, db: &SessionDBConn, age: &str) {
+        db.run(|c| {
+            let query = format!(
+                "INSERT INTO session (
+                session_id,
+                room_id,
+                domain,
+                redirect_url,
+                purpose,
+                name,
+                instance,
+                attr_id,
+                auth_result,
+                last_activity
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now() - INTERVAL '{}');",
+                age
+            );
+
+            c.execute(
+                query.as_str(),
+                &[
+                    &s.guest_token.id,
+                    &s.guest_token.room_id,
+                    &s.guest_token.domain.to_string(),
+                    &s.guest_token.redirect_url,
+                    &s.purpose,
+                    &s.guest_token.name,
+                    &s.guest_token.instance,
+                    &s.attr_id,
+                    &s.auth_result,
+                ],
+            )
+        })
+        .await
+        .unwrap();
+    }
+
     #[test]
-    fn clean_db_test() {
+    #[serial]
+    fn test_register_auth_result() {
         smol::block_on(async {
             let db = init_database_connection().await;
-            let s = bogus_session();
+
+            let s = bogus_session(None, None);
             s.persist(&db).await.unwrap();
+
             Session::register_auth_result(
-                ATTR_ID.to_owned(),
+                s.attr_id.to_owned(),
                 "invalid_auth_result".to_owned(),
                 &db,
             )
             .await
             .unwrap();
 
-            let sessions = Session::find_by_room_id(ROOM_ID.to_owned(), &db)
+            let sessions = Session::find_by_room_id(s.guest_token.room_id.to_owned(), &db)
                 .await
                 .unwrap();
 
@@ -260,6 +299,27 @@ mod tests {
                 sessions[0].auth_result,
                 Some("invalid_auth_result".to_owned())
             )
+        });
+    }
+
+    #[test]
+    #[serial]
+    fn test_clean_db() {
+        smol::block_on(async {
+            let db = init_database_connection().await;
+            let room_id = "Room 123 Test".to_owned();
+
+            insert_session_with_age(&bogus_session(None, Some(room_id.clone())), &db, "1 hour")
+                .await;
+            insert_session_with_age(&bogus_session(None, Some(room_id.clone())), &db, "2 hour")
+                .await;
+            insert_session_with_age(&bogus_session(None, Some(room_id.clone())), &db, "1 minute")
+                .await;
+
+            clean_db(&db).await.unwrap();
+
+            let sessions = Session::find_by_room_id(room_id, &db).await.unwrap();
+            assert_eq!(sessions.len(), 1);
         });
     }
 }

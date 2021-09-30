@@ -27,8 +27,8 @@ strum_macros = "0.21.1"
 rand = "0.8.4"
 tera = "1"
 lazy_static = "1.4.0"
-smol = "1.2.5"
 
 [dev-dependencies]
 figment = { version = "0.10.6", features = ["env", "toml", "json"] }
 smol = "1.2.5"
+serial_test = "0.5.1"
