@@ -203,9 +203,11 @@ mod tests {
     const ATTR_ID: &str = "123465789";
 
     async fn init_database_connection() -> SessionDBConn {
-        let client: postgres::Client =
-            postgres::Client::connect("postgres://postgres:postgres@localhost:5432/postgres", NoTls)
-                .unwrap();
+        let client: postgres::Client = postgres::Client::connect(
+            "postgres://postgres:postgres@localhost:5432/postgres",
+            NoTls,
+        )
+        .unwrap();
         let db = SessionDBConn::new(client);
 
         let sql = include_str!("../schema.sql");
