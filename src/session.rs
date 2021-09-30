@@ -176,7 +176,9 @@ mod db {
     use rocket_sync_db_pools::postgres;
     use std::cell::RefCell;
 
-    #[cfg(test)]
+    /// A SessionDbConn object that has the same API,
+    /// but is not created by setting up a Rocket fairing.
+    /// For testing purposes only.
     pub struct SessionDBConn(RefCell<postgres::Client>);
 
     #[cfg(test)]
@@ -193,24 +195,29 @@ mod db {
 
 #[cfg(test)]
 mod tests {
+    use super::{Session, SessionDBConn};
+    use crate::prelude::GuestToken;
     use rocket_sync_db_pools::postgres::{self, NoTls};
 
-    use crate::prelude::GuestToken;
+    const ROOM_ID: &str = "987-654-321";
+    const ATTR_ID: &str = "123465789";
 
-    use super::{Session, SessionDBConn};
-    fn init_database() -> SessionDBConn {
+    async fn init_database_connection() -> SessionDBConn {
         let client: postgres::Client =
-            postgres::Client::connect("postgresql://tg@localhost:5432/tg", NoTls).unwrap();
-        SessionDBConn::new(client)
+            postgres::Client::connect("postgresql://postgres@localhost:5432/postgres", NoTls)
+                .unwrap();
+        let db = SessionDBConn::new(client);
+
+        let sql = include_str!("../schema.sql");
+
+        for stmt in sql.split(';') {
+            db.run(|c| c.execute(stmt, &[])).await.unwrap();
+        }
+
+        db
     }
 
-    #[test]
-    fn clean_db_test() {
-        let db = init_database();
-
-        const ROOM_ID: &str = "987-654-321";
-        const ATTR_ID: &str = "123465789";
-
+    fn bogus_session() -> Session {
         let guest_token = GuestToken {
             id: "123-456-789".to_owned(),
             domain: crate::types::SessionDomain::Guest,
@@ -220,14 +227,19 @@ mod tests {
             instance: "icontact.nl".to_owned(),
         };
 
-        let s = Session {
+        Session {
             guest_token: guest_token,
             auth_result: None,
             attr_id: ATTR_ID.to_owned(),
             purpose: "test".to_owned(),
-        };
+        }
+    }
 
+    #[test]
+    fn clean_db_test() {
         smol::block_on(async {
+            let db = init_database_connection().await;
+            let s = bogus_session();
             s.persist(&db).await.unwrap();
             Session::register_auth_result(
                 ATTR_ID.to_owned(),
@@ -242,7 +254,10 @@ mod tests {
                 .unwrap();
 
             assert_eq!(sessions.len(), 1);
-            assert_eq!(sessions[0].auth_result, Some("invalid_auth_result".to_owned()))
+            assert_eq!(
+                sessions[0].auth_result,
+                Some("invalid_auth_result".to_owned())
+            )
         });
     }
 }
