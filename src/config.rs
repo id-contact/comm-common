@@ -1,3 +1,4 @@
+use crate::auth;
 use crate::error::Error;
 
 use id_contact_jwt::{EncryptionKeyConfig, SignKeyConfig};
@@ -5,6 +6,7 @@ use josekit::{jwe::JweDecrypter, jws::JwsVerifier};
 use serde::Deserialize;
 
 use std::convert::TryFrom;
+use std::str::FromStr;
 
 #[cfg(feature = "auth_during_comm")]
 pub(crate) use self::auth_during_comm::{AuthDuringCommConfig, RawAuthDuringCommConfig};
@@ -24,6 +26,8 @@ pub struct RawConfig {
     /// Public key used to sign ID Contact JWSs
     signature_pubkey: SignKeyConfig,
 
+    oauth_provider: String,
+
     #[cfg(feature = "auth_during_comm")]
     #[serde(flatten)]
     /// Configuration specific for auth during comm
@@ -41,6 +45,8 @@ pub struct Config {
     pub decrypter: Box<dyn JweDecrypter>,
     pub validator: Box<dyn JwsVerifier>,
 
+    pub oauth_provider: auth::OauthProvider,
+
     #[cfg(feature = "auth_during_comm")]
     #[serde(flatten)]
     pub auth_during_comm_config: AuthDuringCommConfig,
@@ -54,12 +60,16 @@ impl TryFrom<RawConfig> for Config {
         let auth_during_comm_config =
             AuthDuringCommConfig::try_from(raw_config.auth_during_comm_config)?;
 
+        let oauth_provider = auth::OauthProvider::from_str(&raw_config.oauth_provider)?;
+
         Ok(Config {
             #[cfg(feature = "auth_during_comm")]
             auth_during_comm_config,
             internal_url: raw_config.internal_url,
             external_url: raw_config.external_url,
             sentry_dsn: raw_config.sentry_dsn,
+
+            oauth_provider: oauth_provider,
 
             decrypter: Box::<dyn JweDecrypter>::try_from(raw_config.decryption_privkey)?,
             validator: Box::<dyn JwsVerifier>::try_from(raw_config.signature_pubkey)?,
@@ -89,6 +99,10 @@ impl Config {
 
     pub fn sentry_dsn(&self) -> Option<&str> {
         self.sentry_dsn.as_deref()
+    }
+
+    pub fn oauth_provider(&self) -> &auth::OauthProvider {
+        &self.oauth_provider
     }
 
     #[cfg(feature = "auth_during_comm")]

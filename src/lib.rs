@@ -1,3 +1,5 @@
+/// Common authentication and authorisation mechanisms
+pub mod auth;
 /// Common configuration mechanisms
 pub mod config;
 /// Error type with responder implementation
@@ -19,6 +21,9 @@ pub mod credentials;
 extern crate lazy_static;
 
 pub mod prelude {
+    pub use crate::auth::{
+        check_token, fairing_google, fairing_microsoft, LoginUrl, OauthProvider, TokenCookie,
+    };
     pub use crate::config::Config;
     pub use crate::error::Error;
     pub use crate::jwt::sign_auth_select_params;
