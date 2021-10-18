@@ -25,12 +25,6 @@ pub enum OauthProvider {
 
 pub struct TokenCookie(String);
 
-impl std::fmt::Display for TokenCookie {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(f, "{}", self.0)
-    }
-}
-
 #[rocket::async_trait]
 impl<'r> FromRequest<'r> for TokenCookie {
     type Error = Error;
@@ -87,7 +81,7 @@ async fn check_token_google(token: TokenCookie) -> Result<bool, Error> {
     let user_info: GoogleUserInfo = reqwest::Client::builder()
         .build()?
         .get("https://openidconnect.googleapis.com/v1/userinfo")
-        .header(AUTHORIZATION, format!("Bearer {}", token))
+        .header(AUTHORIZATION, format!("Bearer {}", token.0))
         .send()
         .await?
         .json()
@@ -163,7 +157,7 @@ async fn check_token_microsoft(token: TokenCookie) -> Result<bool, Error> {
     let user_info: MicrosoftUserInfo = reqwest::Client::builder()
         .build()?
         .get("https://graph.microsoft.com/v1.0/me")
-        .header(AUTHORIZATION, format!("Bearer {}", token))
+        .header(AUTHORIZATION, format!("Bearer {}", token.0))
         .send()
         .await?
         .json()
