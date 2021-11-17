@@ -73,6 +73,7 @@ pub mod platform_token {
         #[serde(rename = "roomId")]
         pub room_id: String,
         pub instance: String,
+        pub purpose: String,
     }
 
     pub trait FromPlatformJwt: Sized + DeserializeOwned {
