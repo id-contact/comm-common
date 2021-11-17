@@ -18,16 +18,13 @@ pub struct Session {
     pub auth_result: Option<String>,
     /// ID used to match incoming attributes with this session
     pub attr_id: String,
-    /// Session purpose
-    pub purpose: String,
 }
 
 impl Session {
     /// Create a new session
-    pub fn new(guest_token: GuestToken, attr_id: String, purpose: String) -> Self {
+    pub fn new(guest_token: GuestToken, attr_id: String) -> Self {
         Self {
             attr_id,
-            purpose,
             guest_token,
             auth_result: None,
         }
@@ -57,7 +54,7 @@ impl Session {
                         &this.guest_token.room_id,
                         &this.guest_token.domain.to_string(),
                         &this.guest_token.redirect_url,
-                        &this.purpose,
+                        &this.guest_token.purpose,
                         &this.guest_token.name,
                         &this.guest_token.instance,
                         &this.attr_id,
@@ -137,9 +134,9 @@ impl Session {
                             redirect_url: r.get("redirect_url"),
                             name: r.get("name"),
                             instance: r.get("instance"),
+                            purpose: r.get("purpose"),
                         };
                         Ok(Session {
-                            purpose: r.get("purpose"),
                             guest_token,
                             attr_id: r.get("attr_id"),
                             auth_result: r.get("auth_result"),
