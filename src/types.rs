@@ -101,15 +101,16 @@ mod tests {
 
     const GUEST_TOKEN: &str = "\
                             eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.\
-                            eyJleHAiOjE2MjAyMDk0ODMsImlhdCI6MTYzM\
+                            eyJleHAiOjE2NTQzNTY1MTgsImlhdCI6MTYzM\
                             jM4Njk1MywicGF5bG9hZCI6eyJkb21haW4iOi\
                             JndWVzdCIsImlkIjoiMTAxLTEwMTAtMTAxMC0\
                             xMDEiLCJpbnN0YW5jZSI6InR3ZWVkZWdvbGYu\
-                            bmwiLCJuYW1lIjoiVW5rbm93biIsInJlZGlyZ\
-                            WN0VXJsIjoiaHR0cHM6Ly90d2VlZGVnb2xmLm\
-                            5sIiwicm9vbUlkIjoiMTYifSwicmVjIjoiSWR\
-                            Db250YWN0Q29tbXVuaWNhdGlvbiJ9.PBYpxHD\
-                            BIkYTht_RMNHN9nmmH-SxsrQI-ZPdvi2Uo1Q";
+                            bmwiLCJuYW1lIjoiVW5rbm93biIsInB1cnBvc\
+                            2UiOiJ0ZXN0IiwicmVkaXJlY3RVcmwiOiJodH\
+                            RwczovL3R3ZWVkZWdvbGYubmwiLCJyb29tSWQ\
+                            iOiIxNiJ9LCJyZWMiOiJJZENvbnRhY3RDb21t\
+                            dW5pY2F0aW9uIn0.s-mRc0sOXao-R6pMG15en\
+                            Xidwh5PdnK_XwFZkpgS-wo";
 
     const HOST_TOKEN: &str = "\
                             eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.\
@@ -141,6 +142,7 @@ mod tests {
             name,
             room_id,
             instance,
+            purpose: _,
         } = GuestToken::from_platform_jwt(GUEST_TOKEN, &guest_validator)
             .expect("Error verifying guest token");
 

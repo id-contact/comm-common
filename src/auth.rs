@@ -20,25 +20,35 @@ pub struct LoginUrl {
 }
 
 #[derive(Debug, strum_macros::EnumString)]
-pub enum OauthProvider {
+pub enum AuthProvider {
+    None,
     Google,
     Microsoft,
 }
 
-impl OauthProvider {
-    pub fn fairing(&self) -> Box<dyn Fairing> {
+impl AuthProvider {
+    pub fn fairing(&self) -> impl Fairing {
         match self {
-            OauthProvider::Google => Box::new(fairing_google()),
-            OauthProvider::Microsoft => Box::new(fairing_microsoft()),
+            AuthProvider::Google => AdHoc::on_ignite("Auth", |rocket| async {
+                rocket
+                    .mount("/", rocket::routes![login_google, redirect_google])
+                    .attach(OAuth2::<Google>::fairing("google"))
+            }),
+            AuthProvider::Microsoft => AdHoc::on_ignite("Auth", |rocket| async {
+                rocket
+                    .mount("/", rocket::routes![login_microsoft, redirect_microsoft])
+                    .attach(OAuth2::<Microsoft>::fairing("microsoft"))
+            }),
+            _ => AdHoc::on_ignite("Auth", |rocket| async { rocket }),
         }
     }
 }
 
-impl TryFrom<String> for OauthProvider {
+impl TryFrom<String> for AuthProvider {
     type Error = Error;
 
     fn try_from(name: String) -> Result<Self, Self::Error> {
-        Ok(OauthProvider::from_str(&name)?)
+        Ok(AuthProvider::from_str(&name)?)
     }
 }
 
@@ -59,14 +69,6 @@ impl<'r> FromRequest<'r> for TokenCookie {
 }
 
 struct Google;
-
-pub fn fairing_google() -> impl Fairing {
-    AdHoc::on_ignite("OAuth2", |rocket| async {
-        rocket
-            .mount("/", rocket::routes![login_google, redirect_google])
-            .attach(OAuth2::<Google>::fairing("google"))
-    })
-}
 
 #[rocket::get("/oauth/login?<redirect>")]
 fn login_google(redirect: String, oauth2: OAuth2<Google>, cookies: &CookieJar<'_>) -> Redirect {
@@ -110,14 +112,6 @@ async fn check_token_google(token: TokenCookie) -> Result<bool, Error> {
 }
 
 struct Microsoft;
-
-pub fn fairing_microsoft() -> impl Fairing {
-    AdHoc::on_ignite("OAuth2", |rocket| async {
-        rocket
-            .mount("/", rocket::routes![login_microsoft, redirect_microsoft])
-            .attach(OAuth2::<Microsoft>::fairing("microsoft"))
-    })
-}
 
 #[rocket::get("/oauth/login?<redirect>")]
 fn login_microsoft(
@@ -186,8 +180,9 @@ async fn check_token_microsoft(token: TokenCookie) -> Result<bool, Error> {
 }
 
 pub async fn check_token(token: TokenCookie, config: &Config) -> Result<bool, Error> {
-    match config.oauth_provider() {
-        OauthProvider::Google => check_token_google(token).await,
-        OauthProvider::Microsoft => check_token_microsoft(token).await,
+    match config.auth_provider() {
+        AuthProvider::None => Err(Error::Forbidden("No auth provider configured")),
+        AuthProvider::Google => check_token_google(token).await,
+        AuthProvider::Microsoft => check_token_microsoft(token).await,
     }
 }

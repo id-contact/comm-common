@@ -217,7 +217,7 @@ mod tests {
         jws::{alg::hmac::HmacJwsAlgorithm, JwsSigner, JwsVerifier},
     };
 
-    use crate::auth::OauthProvider;
+    use crate::auth::AuthProvider;
     use crate::config::AuthDuringCommConfig;
 
     const EC_PUBKEY: &str = r"
@@ -304,7 +304,7 @@ mod tests {
             external_url: None,
             sentry_dsn: None,
             decrypter,
-            oauth_provider: OauthProvider::Google,
+            auth_provider: AuthProvider::None,
             verifier,
             auth_during_comm_config,
         };

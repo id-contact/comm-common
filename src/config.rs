@@ -25,7 +25,7 @@ pub struct RawConfig {
     /// Public key used to verify ID Contact JWSs
     signature_pubkey: SignKeyConfig,
 
-    oauth_provider: String,
+    auth_provider: String,
 
     #[cfg(feature = "auth_during_comm")]
     #[serde(flatten)]
@@ -44,7 +44,7 @@ pub struct Config {
     pub decrypter: Box<dyn JweDecrypter>,
     pub verifier: Box<dyn JwsVerifier>,
 
-    pub oauth_provider: auth::OauthProvider,
+    pub auth_provider: auth::AuthProvider,
 
     #[cfg(feature = "auth_during_comm")]
     #[serde(flatten)]
@@ -66,7 +66,7 @@ impl TryFrom<RawConfig> for Config {
             external_url: raw_config.external_url,
             sentry_dsn: raw_config.sentry_dsn,
 
-            oauth_provider: auth::OauthProvider::try_from(raw_config.oauth_provider)?,
+            auth_provider: auth::AuthProvider::try_from(raw_config.auth_provider)?,
             decrypter: Box::<dyn JweDecrypter>::try_from(raw_config.decryption_privkey)?,
             verifier: Box::<dyn JwsVerifier>::try_from(raw_config.signature_pubkey)?,
         })
@@ -97,8 +97,8 @@ impl Config {
         self.sentry_dsn.as_deref()
     }
 
-    pub fn oauth_provider(&self) -> &auth::OauthProvider {
-        &self.oauth_provider
+    pub fn auth_provider(&self) -> &auth::AuthProvider {
+        &self.auth_provider
     }
 
     #[cfg(feature = "auth_during_comm")]
@@ -262,6 +262,7 @@ external_url = "https://external.example.com"
 core_url = "https://core.example.com"
 widget_url = "https://widget.example.com"
 display_name = "Example Comm"
+auth_provider = "Google"
 guest_signature_secret = "fliepfliepfliepfliepfliepfliepfliepfliep"
 host_signature_secret = "flapflapflapflapflapflapflapflapflapflap"
 start_auth_key_id = "example"
