@@ -34,7 +34,7 @@ impl<'r> FromRequest<'r> for TokenCookie {
             .cookies()
             .get_private("token")
             .and_then(|c| c.value().parse().ok())
-            .map(|t| TokenCookie(t))
+            .map(TokenCookie)
             .or_forward(())
     }
 }
