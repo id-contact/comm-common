@@ -27,7 +27,7 @@ lazy_static! {
                 .expect("Error loading custom base.html template");
         } else {
             tera.add_raw_template("base.html", include_str!("templates/base.html"))
-                .unwrap();
+                .expect("Error loading included base.html template");
         }
 
         if Path::new("templates/credentials.html").exists() {
@@ -38,7 +38,7 @@ lazy_static! {
                 "credentials.html",
                 include_str!("templates/credentials.html"),
             )
-            .unwrap();
+            .expect("Error loading included credentials.html template");
         }
 
         tera
