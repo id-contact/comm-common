@@ -1,4 +1,4 @@
-use std::{str::FromStr, convert::TryFrom};
+use std::{convert::TryFrom, str::FromStr};
 
 use crate::config::Config;
 use crate::error::Error;
