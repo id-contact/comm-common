@@ -76,8 +76,8 @@ pub mod platform_token {
     }
 
     pub trait FromPlatformJwt: Sized + DeserializeOwned {
-        fn from_platform_jwt(jwt: &str, validator: &dyn JwsVerifier) -> Result<Self, JwtError> {
-            let (payload, _) = josekit::jwt::decode_with_verifier(jwt, validator)?;
+        fn from_platform_jwt(jwt: &str, verifier: &dyn JwsVerifier) -> Result<Self, JwtError> {
+            let (payload, _) = josekit::jwt::decode_with_verifier(jwt, verifier)?;
             let claim = payload
                 .claim("payload")
                 .ok_or(JwtError::InvalidStructure("payload"))?;
