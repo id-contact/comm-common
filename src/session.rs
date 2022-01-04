@@ -4,8 +4,9 @@ use crate::{
     error::Error,
     types::{GuestToken, SessionDomain},
 };
-use rocket_sync_db_pools::{database, postgres};
 use serde::{Deserialize, Serialize};
+
+use rocket_sync_db_pools::{database, postgres};
 
 #[database("session")]
 pub struct SessionDBConn(postgres::Client);
@@ -18,16 +19,13 @@ pub struct Session {
     pub auth_result: Option<String>,
     /// ID used to match incoming attributes with this session
     pub attr_id: String,
-    /// Session purpose
-    pub purpose: String,
 }
 
 impl Session {
     /// Create a new session
-    pub fn new(guest_token: GuestToken, attr_id: String, purpose: String) -> Self {
+    pub fn new(guest_token: GuestToken, attr_id: String) -> Self {
         Self {
             attr_id,
-            purpose,
             guest_token,
             auth_result: None,
         }
@@ -57,7 +55,7 @@ impl Session {
                         &this.guest_token.room_id,
                         &this.guest_token.domain.to_string(),
                         &this.guest_token.redirect_url,
-                        &this.purpose,
+                        &this.guest_token.purpose,
                         &this.guest_token.name,
                         &this.guest_token.instance,
                         &this.attr_id,
@@ -137,9 +135,9 @@ impl Session {
                             redirect_url: r.get("redirect_url"),
                             name: r.get("name"),
                             instance: r.get("instance"),
+                            purpose: r.get("purpose"),
                         };
                         Ok(Session {
-                            purpose: r.get("purpose"),
                             guest_token,
                             attr_id: r.get("attr_id"),
                             auth_result: r.get("auth_result"),
@@ -163,4 +161,173 @@ pub async fn clean_db(db: &SessionDBConn) -> Result<(), Error> {
     })
     .await?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use figment::{
+        providers::{Format, Toml},
+        Figment,
+    };
+    use serial_test::serial;
+
+    use crate::{
+        prelude::{random_string, GuestToken, SessionDBConn},
+        session::clean_db,
+    };
+
+    use super::Session;
+
+    async fn init_db() -> Option<SessionDBConn> {
+        if let Some(test_db) = option_env!("TEST_DB") {
+            // Easiest (perhaps only) way to get a SessionDBConn is to actually get us a rocket instance that has ignited.
+            // this is to deal with all the rewrites rocket does on that struct.
+            let figment = Figment::from(rocket::Config::default())
+                .select(rocket::Config::DEBUG_PROFILE)
+                .merge(
+                    Toml::string(&format!(
+                        r#"
+[global.databases]
+session = {{ url = "{}" }}
+"#,
+                        test_db
+                    ))
+                    .nested(),
+                );
+            let rocket = rocket::custom(figment)
+                .attach(SessionDBConn::fairing())
+                .ignite()
+                .await
+                .unwrap();
+            let db_session = SessionDBConn::get_one(&rocket).await.unwrap();
+            db_session
+                .run(|c| {
+                    c.batch_execute(include_str!("../schema.sql")).unwrap();
+                    println!("Database prepared");
+                })
+                .await;
+            Some(db_session)
+        } else {
+            None
+        }
+    }
+
+    fn bogus_session(id: Option<String>, room_id: Option<String>) -> Session {
+        let guest_token = GuestToken {
+            id: id.unwrap_or_else(|| random_string(32)),
+            domain: crate::types::SessionDomain::Guest,
+            redirect_url: "idcontact.nl".to_owned(),
+            name: "Test Id Contact".to_owned(),
+            room_id: room_id.unwrap_or_else(|| random_string(32)),
+            instance: "icontact.nl".to_owned(),
+        };
+
+        Session {
+            guest_token: guest_token,
+            auth_result: None,
+            attr_id: random_string(32),
+            purpose: "test".to_owned(),
+        }
+    }
+
+    async fn insert_session_with_age(s: Session, db: &SessionDBConn, age: String) {
+        db.run(move |c| {
+            let query = format!(
+                "INSERT INTO session (
+                session_id,
+                room_id,
+                domain,
+                redirect_url,
+                purpose,
+                name,
+                instance,
+                attr_id,
+                auth_result,
+                last_activity
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now() - INTERVAL '{}');",
+                age
+            );
+
+            c.execute(
+                query.as_str(),
+                &[
+                    &s.guest_token.id,
+                    &s.guest_token.room_id,
+                    &s.guest_token.domain.to_string(),
+                    &s.guest_token.redirect_url,
+                    &s.purpose,
+                    &s.guest_token.name,
+                    &s.guest_token.instance,
+                    &s.attr_id,
+                    &s.auth_result,
+                ],
+            )
+        })
+        .await
+        .unwrap();
+    }
+
+    #[test]
+    // this ensures test is not parallelised with other serial tests, ensuring only one database test is run at a time.
+    #[serial]
+    fn test_register_auth_result() {
+        tokio_test::block_on(async {
+            if let Some(db) = init_db().await {
+                let s = bogus_session(None, None);
+                s.persist(&db).await.unwrap();
+
+                Session::register_auth_result(
+                    s.attr_id.to_owned(),
+                    "invalid_auth_result".to_owned(),
+                    &db,
+                )
+                .await
+                .unwrap();
+
+                let sessions = Session::find_by_room_id(s.guest_token.room_id.to_owned(), &db)
+                    .await
+                    .unwrap();
+
+                assert_eq!(sessions.len(), 1);
+                assert_eq!(
+                    sessions[0].auth_result,
+                    Some("invalid_auth_result".to_owned())
+                )
+            }
+        });
+    }
+
+    #[test]
+    #[serial]
+    fn test_clean_db() {
+        tokio_test::block_on(async {
+            if let Some(db) = init_db().await {
+                let room_id = "Room 123 Test".to_owned();
+
+                insert_session_with_age(
+                    bogus_session(None, Some(room_id.clone())),
+                    &db,
+                    "1 hour".into(),
+                )
+                .await;
+                insert_session_with_age(
+                    bogus_session(None, Some(room_id.clone())),
+                    &db,
+                    "2 hour".into(),
+                )
+                .await;
+                insert_session_with_age(
+                    bogus_session(None, Some(room_id.clone())),
+                    &db,
+                    "1 minute".into(),
+                )
+                .await;
+
+                clean_db(&db).await.unwrap();
+
+                let sessions = Session::find_by_room_id(room_id, &db).await.unwrap();
+                assert_eq!(sessions.len(), 1);
+            }
+        });
+    }
 }

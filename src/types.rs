@@ -73,11 +73,12 @@ pub mod platform_token {
         #[serde(rename = "roomId")]
         pub room_id: String,
         pub instance: String,
+        pub purpose: String,
     }
 
     pub trait FromPlatformJwt: Sized + DeserializeOwned {
-        fn from_platform_jwt(jwt: &str, validator: &dyn JwsVerifier) -> Result<Self, JwtError> {
-            let (payload, _) = josekit::jwt::decode_with_verifier(jwt, validator)?;
+        fn from_platform_jwt(jwt: &str, verifier: &dyn JwsVerifier) -> Result<Self, JwtError> {
+            let (payload, _) = josekit::jwt::decode_with_verifier(jwt, verifier)?;
             let claim = payload
                 .claim("payload")
                 .ok_or(JwtError::InvalidStructure("payload"))?;
@@ -89,4 +90,78 @@ pub mod platform_token {
     impl FromPlatformJwt for GuestToken {}
 
     impl FromPlatformJwt for HostToken {}
+}
+
+#[cfg(test)]
+mod tests {
+    use josekit::jws::alg::hmac::HmacJwsAlgorithm;
+
+    const GUEST_SECRET: &str = "9e4ed6fdc6f7b8fb78f500d3abf3a042412140703249e2fe5671ecdab7e694bb";
+    const HOST_SECRET: &str = "54f0a09305eaa1d3ffc3ccb6035e95871eecbfa964404332ffddad52d43bf7b1";
+
+    const GUEST_TOKEN: &str = "\
+                            eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.\
+                            eyJleHAiOjE2MjAyMDk0ODMsImlhdCI6MTYzM\
+                            jM4Njk1MywicGF5bG9hZCI6eyJkb21haW4iOi\
+                            JndWVzdCIsImlkIjoiMTAxLTEwMTAtMTAxMC0\
+                            xMDEiLCJpbnN0YW5jZSI6InR3ZWVkZWdvbGYu\
+                            bmwiLCJuYW1lIjoiVW5rbm93biIsInJlZGlyZ\
+                            WN0VXJsIjoiaHR0cHM6Ly90d2VlZGVnb2xmLm\
+                            5sIiwicm9vbUlkIjoiMTYifSwicmVjIjoiSWR\
+                            Db250YWN0Q29tbXVuaWNhdGlvbiJ9.PBYpxHD\
+                            BIkYTht_RMNHN9nmmH-SxsrQI-ZPdvi2Uo1Q";
+
+    const HOST_TOKEN: &str = "\
+                            eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.\
+                            eyJleHAiOjE2MjAyMDk5MDUsImlhdCI6MTYzM\
+                            jM4NzExMywicGF5bG9hZCI6eyJkb21haW4iOi\
+                            J1c2VyIiwiaWQiOiIxIiwiaW5zdGFuY2UiOiJ\
+                            0d2VlZGVnb2xmLm5sIiwicm9vbUlkIjoiMTYi\
+                            fSwicmVjIjoiSWRDb250YWN0Q29tbXVuaWNhd\
+                            GlvbiJ9.s2qV6zwaH09ktbAxU-YiL-Y5u-AD8R\
+                            LiNWrnap7jhJk";
+
+    #[test]
+    #[cfg(feature = "platform_token")]
+    fn from_platform_jwt_test() {
+        use super::platform_token::{FromPlatformJwt, GuestToken, HostToken};
+        use crate::types::SessionDomain;
+
+        let guest_validator = HmacJwsAlgorithm::Hs256
+            .verifier_from_bytes(GUEST_SECRET)
+            .unwrap();
+        let host_validator = HmacJwsAlgorithm::Hs256
+            .verifier_from_bytes(HOST_SECRET)
+            .unwrap();
+
+        let GuestToken {
+            id,
+            domain,
+            redirect_url,
+            name,
+            room_id,
+            instance,
+        } = GuestToken::from_platform_jwt(GUEST_TOKEN, &guest_validator)
+            .expect("Error verifying guest token");
+
+        assert_eq!(id, "101-1010-1010-101");
+        assert!(matches!(domain, SessionDomain::Guest));
+        assert_eq!(redirect_url, "https://tweedegolf.nl");
+        assert_eq!(name, "Unknown");
+        assert_eq!(room_id, "16");
+        assert_eq!(instance, "tweedegolf.nl");
+
+        let HostToken {
+            id,
+            domain,
+            room_id,
+            instance,
+        } = HostToken::from_platform_jwt(HOST_TOKEN, &host_validator)
+            .expect("Error verifying host token");
+
+        assert_eq!(id, "1");
+        assert!(matches!(domain, SessionDomain::User));
+        assert_eq!(room_id, "16");
+        assert_eq!(instance, "tweedegolf.nl");
+    }
 }
