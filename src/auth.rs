@@ -25,6 +25,15 @@ pub enum OauthProvider {
     Microsoft,
 }
 
+impl OauthProvider {
+    pub fn fairing(&self) -> Box<dyn Fairing> {
+        match self {
+            OauthProvider::Google => Box::new(fairing_google()),
+            OauthProvider::Microsoft => Box::new(fairing_microsoft()),
+        }
+    }
+}
+
 impl TryFrom<String> for OauthProvider {
     type Error = Error;
 
