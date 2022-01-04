@@ -1,3 +1,5 @@
+use std::{str::FromStr, convert::TryFrom};
+
 use crate::config::Config;
 use crate::error::Error;
 
@@ -21,6 +23,14 @@ pub struct LoginUrl {
 pub enum OauthProvider {
     Google,
     Microsoft,
+}
+
+impl TryFrom<String> for OauthProvider {
+    type Error = Error;
+
+    fn try_from(name: String) -> Result<Self, Self::Error> {
+        Ok(OauthProvider::from_str(&name)?)
+    }
 }
 
 pub struct TokenCookie(String);

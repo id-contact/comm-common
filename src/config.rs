@@ -6,7 +6,6 @@ use josekit::{jwe::JweDecrypter, jws::JwsVerifier};
 use serde::Deserialize;
 
 use std::convert::TryFrom;
-use std::str::FromStr;
 
 #[cfg(feature = "auth_during_comm")]
 pub(crate) use self::auth_during_comm::{AuthDuringCommConfig, RawAuthDuringCommConfig};
@@ -60,8 +59,6 @@ impl TryFrom<RawConfig> for Config {
         let auth_during_comm_config =
             AuthDuringCommConfig::try_from(raw_config.auth_during_comm_config)?;
 
-        let oauth_provider = auth::OauthProvider::from_str(&raw_config.oauth_provider)?;
-
         Ok(Config {
             #[cfg(feature = "auth_during_comm")]
             auth_during_comm_config,
@@ -69,8 +66,7 @@ impl TryFrom<RawConfig> for Config {
             external_url: raw_config.external_url,
             sentry_dsn: raw_config.sentry_dsn,
 
-            oauth_provider,
-
+            oauth_provider: auth::OauthProvider::try_from(raw_config.oauth_provider)?,
             decrypter: Box::<dyn JweDecrypter>::try_from(raw_config.decryption_privkey)?,
             verifier: Box::<dyn JwsVerifier>::try_from(raw_config.signature_pubkey)?,
         })
@@ -346,7 +342,7 @@ MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEZLquEijJ7cP7K9qIHG7EvCTph53N
                 .unwrap();
 
             assert!(config
-                .validator()
+                .verifier()
                 .verify(&message, &auth_during_comm_signature)
                 .is_ok());
 
@@ -357,7 +353,7 @@ MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEZLquEijJ7cP7K9qIHG7EvCTph53N
                 .unwrap();
 
             assert!(config
-                .validator()
+                .verifier()
                 .verify(&message, &widget_signing_signature)
                 .is_ok());
         }
