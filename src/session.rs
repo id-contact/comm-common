@@ -1,12 +1,13 @@
 use std::str::FromStr;
+use std::time::Duration;
 
 use crate::{
     error::Error,
     types::{GuestToken, SessionDomain},
 };
-use serde::{Deserialize, Serialize};
-
+use rocket::tokio;
 use rocket_sync_db_pools::{database, postgres};
+use serde::{Deserialize, Serialize};
 
 #[database("session")]
 pub struct SessionDBConn(postgres::Client);
@@ -161,6 +162,16 @@ pub async fn clean_db(db: &SessionDBConn) -> Result<(), Error> {
     })
     .await?;
     Ok(())
+}
+
+pub async fn periodic_cleanup(db: &SessionDBConn, period: Option<u64>) -> Result<(), Error> {
+    let duration = Duration::from_secs(period.unwrap_or(5) * 60);
+    let mut interval = tokio::time::interval(duration);
+
+    loop {
+        interval.tick().await;
+        clean_db(db).await?;
+    }
 }
 
 #[cfg(test)]
