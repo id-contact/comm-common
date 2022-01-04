@@ -194,7 +194,7 @@ pub async fn get_credentials_for_host(
     let guest_auth_results = sessions
         .into_iter()
         .map(|session: Session| GuestAuthResult {
-            purpose: Some(session.purpose),
+            purpose: Some(session.guest_token.purpose),
             name: Some(session.guest_token.name),
             auth_result: session.auth_result,
         })
