@@ -69,7 +69,7 @@ impl TryFrom<RawConfig> for Config {
             external_url: raw_config.external_url,
             sentry_dsn: raw_config.sentry_dsn,
 
-            oauth_provider: oauth_provider,
+            oauth_provider,
 
             decrypter: Box::<dyn JweDecrypter>::try_from(raw_config.decryption_privkey)?,
             validator: Box::<dyn JwsVerifier>::try_from(raw_config.signature_pubkey)?,
