@@ -19,6 +19,8 @@ pub enum Error {
     Forbidden(&'static str),
     #[error("Unauthorized: {0}")]
     Unauthorized(String),
+    #[error("Internal Server: {0}")]
+    InternalServer(&'static str),
     #[error("JWE Error: {0}")]
     Jwe(#[from] JwtError),
     #[error("Postgres Error: {0}")]
@@ -49,6 +51,10 @@ impl<'r, 'o: 'r> rocket::response::Responder<'r, 'o> for Error {
             Unauthorized(m) => (
                 json!({"error": "Unauthorized", "detail": m}),
                 Status::Unauthorized,
+            ),
+            InternalServer(m) => (
+                json!({"error": "InternalServer", "detail": m}),
+                Status::InternalServerError,
             ),
             Jwe(e) => (
                 json!({"error": "BadRequest", "detail": format!("{}", e)}),
