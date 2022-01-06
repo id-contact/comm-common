@@ -220,13 +220,13 @@ session = {{ url = "{}" }}
             name: "Test Id Contact".to_owned(),
             room_id: room_id.unwrap_or_else(|| random_string(32)),
             instance: "icontact.nl".to_owned(),
+            purpose: "test".to_owned(),
         };
 
         Session {
-            guest_token: guest_token,
+            guest_token,
             auth_result: None,
             attr_id: random_string(32),
-            purpose: "test".to_owned(),
         }
     }
 
@@ -255,7 +255,7 @@ session = {{ url = "{}" }}
                     &s.guest_token.room_id,
                     &s.guest_token.domain.to_string(),
                     &s.guest_token.redirect_url,
-                    &s.purpose,
+                    &s.guest_token.purpose,
                     &s.guest_token.name,
                     &s.guest_token.instance,
                     &s.attr_id,

@@ -9,7 +9,7 @@ use std::convert::TryFrom;
 #[cfg(feature = "auth_during_comm")]
 pub(crate) use self::auth_during_comm::{AuthDuringCommConfig, RawAuthDuringCommConfig};
 
-/// Configuration paramters as read directly fom config.toml file.
+/// Configuration paramaters as read directly fom config.toml file.
 #[derive(Deserialize, Debug)]
 pub struct RawConfig {
     /// Internal-facing URL
@@ -244,7 +244,7 @@ mod tests {
     use figment::providers::{Format, Toml};
     use rocket::figment::Figment;
 
-    const TEST_CONFIG_VALID: &'static str = r#"
+    const TEST_CONFIG_VALID: &str = r#"
 [global]
 internal_url = "https://internal.example.com"
 external_url = "https://external.example.com"
@@ -332,7 +332,7 @@ MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEZLquEijJ7cP7K9qIHG7EvCTph53N
                 .unwrap();
 
             assert!(config
-                .validator()
+                .verifier()
                 .verify(&message, &auth_during_comm_signature)
                 .is_ok());
 
@@ -343,7 +343,7 @@ MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEZLquEijJ7cP7K9qIHG7EvCTph53N
                 .unwrap();
 
             assert!(config
-                .validator()
+                .verifier()
                 .verify(&message, &widget_signing_signature)
                 .is_ok());
         }
