@@ -309,7 +309,7 @@ mod tests {
 
         let credentials = collect_credentials(&guest_auth_results, &config).unwrap();
         let out_result = render_credentials(credentials, CredentialRenderType::Html).unwrap();
-        let result: &str = "<section><h4>HenkDieter</h4><dl><dt>age</dt><dd>42</dd><dt>E-mailadres</dt><dd>hd@example.com</dd></dl></section>";
+        let result: &str = "<section><h4>HenkDieter</h4><dl><dt><span>age</span></dt><dd><span>42</span></dd><dt><span>E-mailadres</span></dt><dd><span>hd@example.com</span></dd></dl></section>";
 
         assert_eq!(
             remove_whitespace(result),
@@ -318,7 +318,7 @@ mod tests {
 
         let credentials = collect_credentials(&guest_auth_results, &config).unwrap();
         let out_result = render_credentials(credentials, CredentialRenderType::HtmlPage).unwrap();
-        let result: &str = "<!doctypehtml><htmllang=\"en\"><head><metacharset=\"utf-8\"><metaname=\"viewport\"content=\"width=device-width,initial-scale=1\"><title>IDContactgegevens</title></head><body><main><divclass=\"attributes\"><div><h4>Geverifieerdegegevens</h4><section><h4>HenkDieter</h4><dl><dt>age</dt><dd>42</dd><dt>E-mailadres</dt><dd>hd@example.com</dd></dl></section></div></div></main></body></html>";
+        let result: &str = "<!doctypehtml><htmllang=\"en\"><head><metacharset=\"utf-8\"><metaname=\"viewport\"content=\"width=device-width,initial-scale=1\"><title>IDContactgegevens</title></head><body><main><divclass=\"attributes\"><div><h4>Geverifieerdegegevens</h4><section><h4>HenkDieter</h4><dl><dt><span>age</span></dt><dd><span>42</span></dd><dt><span>E-mailadres</span></dt><dd><span>hd@example.com</span></dd></dl></section></div></div></main></body></html>";
 
         assert_eq!(
             remove_whitespace(result),
