@@ -16,11 +16,11 @@ pub enum Error {
     #[error("Bad Request: {0}")]
     BadRequest(&'static str),
     #[error("Forbidden: {0}")]
-    Forbidden(&'static str),
+    Forbidden(String),
     #[error("Unauthorized: {0}")]
     Unauthorized(String),
     #[error("Internal Server: {0}")]
-    InternalServer(&'static str),
+    InternalServer(String),
     #[error("JWE Error: {0}")]
     Jwe(#[from] JwtError),
     #[error("Postgres Error: {0}")]
