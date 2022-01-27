@@ -21,7 +21,6 @@ pub struct LoginUrl {
 
 #[derive(Debug, strum_macros::EnumString)]
 pub enum AuthProvider {
-    None,
     Google,
     Microsoft,
 }
@@ -39,7 +38,6 @@ impl AuthProvider {
                     .mount("/", rocket::routes![login_microsoft, redirect_microsoft])
                     .attach(OAuth2::<Microsoft>::fairing("microsoft"))
             }),
-            _ => AdHoc::on_ignite("Auth", |rocket| async { rocket }),
         }
     }
 }
@@ -181,8 +179,8 @@ async fn check_token_microsoft(token: TokenCookie) -> Result<bool, Error> {
 
 pub async fn check_token(token: TokenCookie, config: &Config) -> Result<bool, Error> {
     match config.auth_provider() {
-        AuthProvider::None => Err(Error::Forbidden("No auth provider configured")),
-        AuthProvider::Google => check_token_google(token).await,
-        AuthProvider::Microsoft => check_token_microsoft(token).await,
+        Some(AuthProvider::Google) => check_token_google(token).await,
+        Some(AuthProvider::Microsoft) => check_token_microsoft(token).await,
+        None => Err(Error::Forbidden("No auth provider configured")),
     }
 }

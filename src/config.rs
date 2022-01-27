@@ -10,7 +10,7 @@ use std::convert::TryFrom;
 #[cfg(feature = "auth_during_comm")]
 pub(crate) use self::auth_during_comm::{AuthDuringCommConfig, RawAuthDuringCommConfig};
 
-/// Configuration paramters as read directly fom config.toml file.
+/// Configuration parameters as read directly from config.toml file.
 #[derive(Deserialize, Debug)]
 pub struct RawConfig {
     /// Internal-facing URL
@@ -25,7 +25,7 @@ pub struct RawConfig {
     /// Public key used to verify ID Contact JWSs
     signature_pubkey: SignKeyConfig,
 
-    auth_provider: String,
+    auth_provider: Option<String>,
 
     #[cfg(feature = "auth_during_comm")]
     #[serde(flatten)]
@@ -44,7 +44,7 @@ pub struct Config {
     pub decrypter: Box<dyn JweDecrypter>,
     pub verifier: Box<dyn JwsVerifier>,
 
-    pub auth_provider: auth::AuthProvider,
+    pub auth_provider: Option<auth::AuthProvider>,
 
     #[cfg(feature = "auth_during_comm")]
     #[serde(flatten)]
@@ -59,6 +59,11 @@ impl TryFrom<RawConfig> for Config {
         let auth_during_comm_config =
             AuthDuringCommConfig::try_from(raw_config.auth_during_comm_config)?;
 
+        let auth_provider = match raw_config.auth_provider {
+            Some(a) => Some(auth::AuthProvider::try_from(a)?),
+            None => None,
+        };
+
         Ok(Config {
             #[cfg(feature = "auth_during_comm")]
             auth_during_comm_config,
@@ -66,7 +71,7 @@ impl TryFrom<RawConfig> for Config {
             external_url: raw_config.external_url,
             sentry_dsn: raw_config.sentry_dsn,
 
-            auth_provider: auth::AuthProvider::try_from(raw_config.auth_provider)?,
+            auth_provider,
             decrypter: Box::<dyn JweDecrypter>::try_from(raw_config.decryption_privkey)?,
             verifier: Box::<dyn JwsVerifier>::try_from(raw_config.signature_pubkey)?,
         })
@@ -97,7 +102,7 @@ impl Config {
         self.sentry_dsn.as_deref()
     }
 
-    pub fn auth_provider(&self) -> &auth::AuthProvider {
+    pub fn auth_provider(&self) -> &Option<auth::AuthProvider> {
         &self.auth_provider
     }
 
@@ -254,7 +259,7 @@ mod tests {
     use figment::providers::{Format, Toml};
     use rocket::figment::Figment;
 
-    const TEST_CONFIG_VALID: &'static str = r#"
+    const TEST_CONFIG_VALID: &str = r#"
 [global]
 internal_url = "https://internal.example.com"
 external_url = "https://external.example.com"

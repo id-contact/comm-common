@@ -217,7 +217,6 @@ mod tests {
         jws::{alg::hmac::HmacJwsAlgorithm, JwsSigner, JwsVerifier},
     };
 
-    use crate::auth::AuthProvider;
     use crate::config::AuthDuringCommConfig;
 
     const EC_PUBKEY: &str = r"
@@ -304,7 +303,7 @@ mod tests {
             external_url: None,
             sentry_dsn: None,
             decrypter,
-            auth_provider: AuthProvider::None,
+            auth_provider: None,
             verifier,
             auth_during_comm_config,
         };
@@ -324,12 +323,12 @@ mod tests {
 
         assert_eq!(
             remove_whitespace(result),
-            remove_whitespace(&out_result.content())
+            remove_whitespace(out_result.content())
         );
 
         let credentials = collect_credentials(&guest_auth_results, &config).unwrap();
         let rendered = render_credentials(credentials, CredentialRenderType::Json).unwrap();
-        let result: serde_json::Value = serde_json::from_str(&rendered.content()).unwrap();
+        let result: serde_json::Value = serde_json::from_str(rendered.content()).unwrap();
         let expected = serde_json::json! {
             [{
                 "purpose":"test_purpose",
