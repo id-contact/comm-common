@@ -105,12 +105,12 @@ mod tests {
                             jM4Njk1MywicGF5bG9hZCI6eyJkb21haW4iOi\
                             JndWVzdCIsImlkIjoiMTAxLTEwMTAtMTAxMC0\
                             xMDEiLCJpbnN0YW5jZSI6InR3ZWVkZWdvbGYu\
-                            bmwiLCJuYW1lIjoiVW5rbm93biIsInB1cnBvc\
-                            2UiOiJ0ZXN0IiwicmVkaXJlY3RVcmwiOiJodH\
-                            RwczovL3R3ZWVkZWdvbGYubmwiLCJyb29tSWQ\
-                            iOiIxNiJ9LCJyZWMiOiJJZENvbnRhY3RDb21t\
-                            dW5pY2F0aW9uIn0.s-mRc0sOXao-R6pMG15en\
-                            Xidwh5PdnK_XwFZkpgS-wo";
+                            bmwiLCJuYW1lIjoiVW5rbm93biIsInJlZGlyZ\
+                            WN0VXJsIjoiaHR0cHM6Ly90d2VlZGVnb2xmLm\
+                            5sIiwicm9vbUlkIjoiMTYiLCJwdXJwb3NlIjo\
+                            idGVzdCJ9LCJyZWMiOiJJZENvbnRhY3RDb21t\
+                            dW5pY2F0aW9uIn0.l7GIGjYMOrYSfbQgkHOdk\
+                            sad_MM2a2s-RZHAVpJW0WE";
 
     const HOST_TOKEN: &str = "\
                             eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.\
@@ -142,7 +142,7 @@ mod tests {
             name,
             room_id,
             instance,
-            purpose: _,
+            purpose,
         } = GuestToken::from_platform_jwt(GUEST_TOKEN, &guest_validator)
             .expect("Error verifying guest token");
 
@@ -152,6 +152,7 @@ mod tests {
         assert_eq!(name, "Unknown");
         assert_eq!(room_id, "16");
         assert_eq!(instance, "tweedegolf.nl");
+        assert_eq!(purpose, "test");
 
         let HostToken {
             id,
