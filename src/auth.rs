@@ -30,12 +30,12 @@ impl AuthProvider {
         match self {
             AuthProvider::Google => AdHoc::on_ignite("Auth", |rocket| async {
                 rocket
-                    .mount("/", rocket::routes![login_google, redirect_google])
+                    .mount("/", rocket::routes![login_google, redirect_google, logout_generic])
                     .attach(OAuth2::<Google>::fairing("google"))
             }),
             AuthProvider::Microsoft => AdHoc::on_ignite("Auth", |rocket| async {
                 rocket
-                    .mount("/", rocket::routes![login_microsoft, redirect_microsoft])
+                    .mount("/", rocket::routes![login_microsoft, redirect_microsoft, logout_generic])
                     .attach(OAuth2::<Microsoft>::fairing("microsoft"))
             }),
         }
@@ -136,27 +136,6 @@ async fn redirect_microsoft(
     redirect_generic(token, cookies).await
 }
 
-async fn redirect_generic<T>(
-    token: TokenResponse<T>,
-    cookies: &CookieJar<'_>,
-) -> Result<Redirect, Error> {
-    cookies.add_private(
-        Cookie::build("token", token.access_token().to_owned())
-            .http_only(true)
-            .secure(true)
-            .same_site(SameSite::Lax)
-            .finish(),
-    );
-
-    match cookies.get_private("redirect") {
-        Some(redirect_to) => {
-            cookies.remove_private(Cookie::named("redirect"));
-            Ok(Redirect::to(redirect_to.value().to_owned()))
-        }
-        None => Ok(Redirect::to("/")),
-    }
-}
-
 #[derive(serde::Deserialize)]
 struct MicrosoftUserInfo {
     #[serde(default, rename = "displayName")]
@@ -183,4 +162,31 @@ pub async fn check_token(token: TokenCookie, config: &Config) -> Result<bool, Er
         Some(AuthProvider::Microsoft) => check_token_microsoft(token).await,
         None => Err(Error::Forbidden("No auth provider configured")),
     }
+}
+
+async fn redirect_generic<T>(
+    token: TokenResponse<T>,
+    cookies: &CookieJar<'_>,
+) -> Result<Redirect, Error> {
+    cookies.add_private(
+        Cookie::build("token", token.access_token().to_owned())
+            .http_only(true)
+            .secure(true)
+            .same_site(SameSite::Lax)
+            .finish(),
+    );
+
+    match cookies.get_private("redirect") {
+        Some(redirect_to) => {
+            cookies.remove_private(Cookie::named("redirect"));
+            Ok(Redirect::to(redirect_to.value().to_owned()))
+        }
+        None => Ok(Redirect::to("/")),
+    }
+}
+
+#[rocket::post("/auth/logout")]
+async fn logout_generic(cookies: &CookieJar<'_>) -> Result<(), Error> {
+    cookies.remove_private(Cookie::named("token"));
+    Ok(())
 }
