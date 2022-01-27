@@ -70,7 +70,7 @@ impl<'r> FromRequest<'r> for TokenCookie {
 
 struct Google;
 
-#[rocket::get("/oauth/login?<redirect>")]
+#[rocket::get("/auth/login?<redirect>")]
 fn login_google(redirect: String, oauth2: OAuth2<Google>, cookies: &CookieJar<'_>) -> Redirect {
     cookies.add_private(
         Cookie::build("redirect", redirect)
@@ -83,7 +83,7 @@ fn login_google(redirect: String, oauth2: OAuth2<Google>, cookies: &CookieJar<'_
     oauth2.get_redirect(cookies, &["profile"]).unwrap()
 }
 
-#[rocket::get("/oauth/redirect")]
+#[rocket::get("/auth/redirect")]
 async fn redirect_google(
     token: TokenResponse<Google>,
     cookies: &CookieJar<'_>,
@@ -113,7 +113,7 @@ async fn check_token_google(token: TokenCookie) -> Result<bool, Error> {
 
 struct Microsoft;
 
-#[rocket::get("/oauth/login?<redirect>")]
+#[rocket::get("/auth/login?<redirect>")]
 fn login_microsoft(
     redirect: String,
     oauth2: OAuth2<Microsoft>,
@@ -130,7 +130,7 @@ fn login_microsoft(
     oauth2.get_redirect(cookies, &["user.read"]).unwrap()
 }
 
-#[rocket::get("/oauth/redirect")]
+#[rocket::get("/auth/redirect")]
 async fn redirect_microsoft(
     token: TokenResponse<Microsoft>,
     cookies: &CookieJar<'_>,
@@ -161,7 +161,7 @@ async fn redirect_generic<T>(
 
 #[derive(serde::Deserialize)]
 struct MicrosoftUserInfo {
-    #[serde(default)]
+    #[serde(default, rename = "displayName")]
     display_name: String,
 }
 
