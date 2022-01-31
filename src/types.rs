@@ -43,9 +43,9 @@ pub mod platform_token {
     use core::str;
     use josekit::jws::JwsVerifier;
     use serde::{de::DeserializeOwned, Deserialize, Serialize};
-    use strum_macros::{EnumString, ToString};
+    use strum_macros::{Display, EnumString};
 
-    #[derive(Deserialize, Debug, Serialize, ToString, Clone, EnumString)]
+    #[derive(Deserialize, Debug, Serialize, Display, Clone, EnumString)]
     #[strum(serialize_all = "snake_case")]
     pub enum SessionDomain {
         #[serde(rename = "user")]
@@ -101,7 +101,7 @@ mod tests {
 
     const GUEST_TOKEN: &str = "\
                             eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.\
-                            eyJleHAiOjE2NTQzNTY1MTgsImlhdCI6MTYzM\
+                            eyJleHAiOjE2MjAyMDk0ODMsImlhdCI6MTYzM\
                             jM4Njk1MywicGF5bG9hZCI6eyJkb21haW4iOi\
                             JndWVzdCIsImlkIjoiMTAxLTEwMTAtMTAxMC0\
                             xMDEiLCJpbnN0YW5jZSI6InR3ZWVkZWdvbGYu\

@@ -225,7 +225,6 @@ session = {{ url = "{}" }}
 
     fn bogus_session(id: Option<String>, room_id: Option<String>) -> Session {
         let guest_token = GuestToken {
-            purpose: "test".to_owned(),
             id: id.unwrap_or_else(|| random_string(32)),
             domain: crate::types::SessionDomain::Guest,
             redirect_url: "idcontact.nl".to_owned(),
