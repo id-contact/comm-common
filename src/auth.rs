@@ -2,6 +2,7 @@ use std::{convert::TryFrom, str::FromStr};
 
 use crate::config::Config;
 use crate::error::Error;
+use crate::templates::{RenderType, RenderedContent, Translations, TEMPLATES, TRANSLATIONS};
 
 use reqwest::header::AUTHORIZATION;
 use rocket::{
@@ -10,9 +11,11 @@ use rocket::{
     outcome::IntoOutcome,
     request::{self, FromRequest, Request},
     response::Redirect,
+    State,
 };
 use rocket_oauth2::{OAuth2, TokenResponse};
 use serde::{Deserialize, Serialize};
+use tera::Context;
 
 #[derive(Deserialize, Serialize)]
 pub struct LoginUrl {
@@ -32,7 +35,7 @@ impl AuthProvider {
                 rocket
                     .mount(
                         "/",
-                        rocket::routes![login_google, redirect_google, logout_generic],
+                        rocket::routes![login_google, redirect_google, logout_generic,],
                     )
                     .attach(OAuth2::<Google>::fairing("google"))
             }),
@@ -40,7 +43,7 @@ impl AuthProvider {
                 rocket
                     .mount(
                         "/",
-                        rocket::routes![login_microsoft, redirect_microsoft, logout_generic],
+                        rocket::routes![login_microsoft, redirect_microsoft, logout_generic,],
                     )
                     .attach(OAuth2::<Microsoft>::fairing("microsoft"))
             }),
@@ -74,25 +77,18 @@ impl<'r> FromRequest<'r> for TokenCookie {
 
 struct Google;
 
-#[rocket::get("/auth/login?<redirect>")]
-fn login_google(redirect: String, oauth2: OAuth2<Google>, cookies: &CookieJar<'_>) -> Redirect {
-    cookies.add_private(
-        Cookie::build("redirect", redirect)
-            .http_only(true)
-            .secure(true)
-            .same_site(SameSite::Lax)
-            .finish(),
-    );
-
+#[rocket::get("/auth/login")]
+fn login_google(cookies: &CookieJar<'_>, oauth2: OAuth2<Google>) -> Redirect {
     oauth2.get_redirect(cookies, &["profile"]).unwrap()
 }
 
 #[rocket::get("/auth/redirect")]
 async fn redirect_google(
-    token: TokenResponse<Google>,
+    config: &State<Config>,
     cookies: &CookieJar<'_>,
-) -> Result<Redirect, Error> {
-    redirect_generic(token, cookies).await
+    token: TokenResponse<Google>,
+) -> Result<String, Error> {
+    redirect_generic(config, cookies, token).await
 }
 
 #[derive(serde::Deserialize)]
@@ -117,29 +113,18 @@ async fn check_token_google(token: TokenCookie) -> Result<bool, Error> {
 
 struct Microsoft;
 
-#[rocket::get("/auth/login?<redirect>")]
-fn login_microsoft(
-    redirect: String,
-    oauth2: OAuth2<Microsoft>,
-    cookies: &CookieJar<'_>,
-) -> Redirect {
-    cookies.add_private(
-        Cookie::build("redirect", redirect)
-            .http_only(true)
-            .secure(true)
-            .same_site(SameSite::Lax)
-            .finish(),
-    );
-
+#[rocket::get("/auth/login")]
+fn login_microsoft(cookies: &CookieJar<'_>, oauth2: OAuth2<Microsoft>) -> Redirect {
     oauth2.get_redirect(cookies, &["user.read"]).unwrap()
 }
 
 #[rocket::get("/auth/redirect")]
 async fn redirect_microsoft(
-    token: TokenResponse<Microsoft>,
+    config: &State<Config>,
     cookies: &CookieJar<'_>,
-) -> Result<Redirect, Error> {
-    redirect_generic(token, cookies).await
+    token: TokenResponse<Microsoft>,
+) -> Result<String, Error> {
+    redirect_generic(config, cookies, token).await
 }
 
 #[derive(serde::Deserialize)]
@@ -171,28 +156,77 @@ pub async fn check_token(token: TokenCookie, config: &Config) -> Result<bool, Er
 }
 
 async fn redirect_generic<T>(
-    token: TokenResponse<T>,
+    config: &State<Config>,
     cookies: &CookieJar<'_>,
-) -> Result<Redirect, Error> {
-    cookies.add_private(
-        Cookie::build("token", token.access_token().to_owned())
-            .http_only(true)
-            .secure(true)
-            .same_site(SameSite::Lax)
-            .finish(),
-    );
+    token: TokenResponse<T>,
+) -> Result<String, Error> {
+    if check_token(TokenCookie(token.access_token().to_owned()), config).await? {
+        cookies.add_private(
+            Cookie::build("token", token.access_token().to_owned())
+                .http_only(true)
+                .secure(true)
+                .same_site(SameSite::Lax)
+                .finish(),
+        );
 
-    match cookies.get_private("redirect") {
-        Some(redirect_to) => {
-            cookies.remove_private(Cookie::named("redirect"));
-            Ok(Redirect::to(redirect_to.value().to_owned()))
-        }
-        None => Ok(Redirect::to("/")),
+        return Ok(TRANSLATIONS.get(
+            "login_successful",
+            "You are now logged in. You can close this window",
+        ));
     }
+
+    Err(Error::Forbidden(TRANSLATIONS.get(
+        "insufficient_permissions",
+        "Insufficient permissions, try logging in with another account",
+    )))
 }
 
 #[rocket::post("/auth/logout")]
-async fn logout_generic(cookies: &CookieJar<'_>) -> Result<(), Error> {
+async fn logout_generic(cookies: &CookieJar<'_>) -> Result<String, Error> {
     cookies.remove_private(Cookie::named("token"));
-    Ok(())
+    Ok(TRANSLATIONS.get(
+        "logout_successful",
+        "You are now logged out. You can close this window",
+    ))
+}
+
+pub fn render_login(config: &Config, render_type: RenderType) -> Result<RenderedContent, Error> {
+    let login_url = format!("{}/auth/login", config.external_url());
+    if render_type == RenderType::Html {
+        let mut context = Context::new();
+        let translations: Translations = TRANSLATIONS.clone();
+
+        context.insert("translations", &translations);
+        context.insert("login_url", &login_url);
+
+        let content = TEMPLATES.render("login.html", &context)?;
+        return Ok(RenderedContent {
+            content,
+            render_type,
+        });
+    }
+
+    Err(Error::Unauthorized(login_url))
+}
+
+pub fn render_unauthorized(
+    config: &Config,
+    render_type: RenderType,
+) -> Result<RenderedContent, Error> {
+    let logout_url = format!("{}/auth/logout", config.external_url());
+    if render_type == RenderType::Html {
+        let mut context = Context::new();
+        let translations: Translations = TRANSLATIONS.clone();
+
+        context.insert("translations", &translations);
+        context.insert("logout_url", &logout_url);
+
+        let content = TEMPLATES.render("expired.html", &context)?;
+        return Ok(RenderedContent {
+            content,
+            render_type,
+        });
+    }
+
+    Err(Error::Forbidden(logout_url))
 }
