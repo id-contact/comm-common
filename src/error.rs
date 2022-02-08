@@ -15,6 +15,12 @@ pub enum Error {
     NotFound,
     #[error("Bad Request: {0}")]
     BadRequest(&'static str),
+    #[error("Forbidden: {0}")]
+    Forbidden(String),
+    #[error("Unauthorized: {0}")]
+    Unauthorized(String),
+    #[error("Internal Server: {0}")]
+    InternalServer(String),
     #[error("JWE Error: {0}")]
     Jwe(#[from] JwtError),
     #[error("Postgres Error: {0}")]
@@ -37,6 +43,18 @@ impl<'r, 'o: 'r> rocket::response::Responder<'r, 'o> for Error {
             BadRequest(m) => (
                 json!({"error": "BadRequest", "detail": m}),
                 Status::BadRequest,
+            ),
+            Forbidden(m) => (
+                json!({"error": "Forbidden", "detail": m}),
+                Status::Forbidden,
+            ),
+            Unauthorized(m) => (
+                json!({"error": "Unauthorized", "detail": m}),
+                Status::Unauthorized,
+            ),
+            InternalServer(m) => (
+                json!({"error": "InternalServer", "detail": m}),
+                Status::InternalServerError,
             ),
             Jwe(e) => (
                 json!({"error": "BadRequest", "detail": format!("{}", e)}),

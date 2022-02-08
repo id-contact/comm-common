@@ -1,13 +1,12 @@
 use std::str::FromStr;
-use std::time::Duration;
 
 use crate::{
     error::Error,
     types::{GuestToken, SessionDomain},
 };
-use rocket::tokio;
-use rocket_sync_db_pools::{database, postgres};
 use serde::{Deserialize, Serialize};
+
+use rocket_sync_db_pools::{database, postgres};
 
 #[database("session")]
 pub struct SessionDBConn(postgres::Client);
@@ -164,16 +163,6 @@ pub async fn clean_db(db: &SessionDBConn) -> Result<(), Error> {
     Ok(())
 }
 
-pub async fn periodic_cleanup(db: &SessionDBConn, period: Option<u64>) -> Result<(), Error> {
-    let duration = Duration::from_secs(period.unwrap_or(5) * 60);
-    let mut interval = tokio::time::interval(duration);
-
-    loop {
-        interval.tick().await;
-        clean_db(db).await?;
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use figment::{
@@ -225,17 +214,17 @@ session = {{ url = "{}" }}
 
     fn bogus_session(id: Option<String>, room_id: Option<String>) -> Session {
         let guest_token = GuestToken {
+            purpose: "test".to_owned(),
             id: id.unwrap_or_else(|| random_string(32)),
             domain: crate::types::SessionDomain::Guest,
             redirect_url: "idcontact.nl".to_owned(),
             name: "Test Id Contact".to_owned(),
             room_id: room_id.unwrap_or_else(|| random_string(32)),
             instance: "icontact.nl".to_owned(),
-            purpose: "test".to_owned(),
         };
 
         Session {
-            guest_token,
+            guest_token: guest_token,
             auth_result: None,
             attr_id: random_string(32),
         }

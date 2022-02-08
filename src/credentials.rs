@@ -2,57 +2,13 @@ use crate::config::Config;
 use crate::error::Error;
 #[cfg(feature = "session_db")]
 use crate::session::{Session, SessionDBConn};
+use crate::templates::{RenderType, RenderedContent, Translations, TEMPLATES, TRANSLATIONS};
 #[cfg(feature = "session_db")]
 use crate::types::platform_token::{FromPlatformJwt, HostToken};
 use crate::types::{Credentials, GuestAuthResult};
-use lazy_static;
-use rocket::response::content;
-use rocket::response::Responder;
-use rocket::{response, Request};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json;
-use std::collections::HashMap;
-use std::path::Path;
-use tera::{Context, Tera};
-
-#[derive(Serialize, Deserialize, Clone)]
-pub struct Translations(HashMap<String, String>);
-
-lazy_static! {
-    pub static ref TEMPLATES: Tera = {
-        let mut tera = Tera::default();
-
-        if Path::new("templates/base.html").exists() {
-            tera.add_template_file("templates/base.html", Some("base.html"))
-                .expect("Error loading custom base.html template");
-        } else {
-            tera.add_raw_template("base.html", include_str!("templates/base.html"))
-                .expect("Error loading included base.html template");
-        }
-
-        if Path::new("templates/credentials.html").exists() {
-            tera.add_template_file("templates/credentials.html", Some("credentials.html"))
-                .expect("Error loading custom credentials.html template");
-        } else {
-            tera.add_raw_template(
-                "credentials.html",
-                include_str!("templates/credentials.html"),
-            )
-            .expect("Error loading included credentials.html template");
-        }
-
-        tera
-    };
-    pub static ref TRANSLATIONS: Translations = {
-        if Path::new("nl.yml").exists() {
-            let f = std::fs::File::open("nl.yml").expect("Could not find translation file");
-            serde_yaml::from_reader(f).expect("Could not parse translations file")
-        } else {
-            serde_yaml::from_str(include_str!("translations/nl.yml"))
-                .expect("Could not load the translations file")
-        }
-    };
-}
+use tera::Context;
 
 /// convert a list of guest jwt's to a list of credentials
 pub fn collect_credentials(
@@ -83,13 +39,6 @@ pub fn collect_credentials(
     Ok(credentials)
 }
 
-#[derive(PartialEq)]
-pub enum CredentialRenderType {
-    Json,
-    Html,
-    HtmlPage,
-}
-
 #[derive(Serialize)]
 pub struct SortedCredentials {
     pub purpose: Option<String>,
@@ -115,40 +64,14 @@ impl From<Credentials> for SortedCredentials {
     }
 }
 
-#[derive(PartialEq)]
-pub struct RenderedCredentials {
-    content: String,
-    render_type: CredentialRenderType,
-}
-
-#[cfg(test)]
-impl RenderedCredentials {
-    pub(self) fn content(&self) -> &str {
-        &self.content
-    }
-}
-
-impl<'r> Responder<'r, 'static> for RenderedCredentials {
-    fn respond_to(self, req: &'r Request<'_>) -> response::Result<'static> {
-        let RenderedCredentials {
-            content,
-            render_type,
-        } = self;
-        if render_type == CredentialRenderType::Json {
-            return content::Json(content).respond_to(req);
-        }
-        content::Html(content).respond_to(req)
-    }
-}
-
 /// render a list of users and credentials to html or json
 pub fn render_credentials(
     credentials: Vec<Credentials>,
-    render_type: CredentialRenderType,
-) -> Result<RenderedCredentials, Error> {
-    if render_type == CredentialRenderType::Json {
+    render_type: RenderType,
+) -> Result<RenderedContent, Error> {
+    if render_type == RenderType::Json {
         let content = serde_json::to_string(&credentials)?;
-        return Ok(RenderedCredentials {
+        return Ok(RenderedContent {
             content,
             render_type,
         });
@@ -165,13 +88,13 @@ pub fn render_credentials(
     context.insert("translations", &translations);
     context.insert("credentials", &sorted_credentials);
 
-    let content = if render_type == CredentialRenderType::HtmlPage {
+    let content = if render_type == RenderType::HtmlPage {
         TEMPLATES.render("base.html", &context)?
     } else {
         TEMPLATES.render("credentials.html", &context)?
     };
 
-    Ok(RenderedCredentials {
+    Ok(RenderedContent {
         content,
         render_type,
     })
@@ -303,13 +226,14 @@ mod tests {
             external_url: None,
             sentry_dsn: None,
             decrypter,
+            auth_provider: None,
             verifier,
             auth_during_comm_config,
         };
 
         let credentials = collect_credentials(&guest_auth_results, &config).unwrap();
-        let out_result = render_credentials(credentials, CredentialRenderType::Html).unwrap();
-        let result: &str = "<section><h4>HenkDieter</h4><dl><dt><span>age</span></dt><dd><span>42</span></dd><dt><span>E-mailadres</span></dt><dd><span>hd@example.com</span></dd></dl></section>";
+        let out_result = render_credentials(credentials, RenderType::Html).unwrap();
+        let result: &str = "<section><h4>HenkDieter</h4><dl><dt>age</dt><dd>42</dd><dt>E-mailadres</dt><dd>hd@example.com</dd></dl></section>";
 
         assert_eq!(
             remove_whitespace(result),
@@ -317,17 +241,17 @@ mod tests {
         );
 
         let credentials = collect_credentials(&guest_auth_results, &config).unwrap();
-        let out_result = render_credentials(credentials, CredentialRenderType::HtmlPage).unwrap();
-        let result: &str = "<!doctypehtml><htmllang=\"en\"><head><metacharset=\"utf-8\"><metaname=\"viewport\"content=\"width=device-width,initial-scale=1\"><title>IDContactgegevens</title></head><body><main><divclass=\"attributes\"><div><h4>Geverifieerdegegevens</h4><section><h4>HenkDieter</h4><dl><dt><span>age</span></dt><dd><span>42</span></dd><dt><span>E-mailadres</span></dt><dd><span>hd@example.com</span></dd></dl></section></div></div></main></body></html>";
+        let out_result = render_credentials(credentials, RenderType::HtmlPage).unwrap();
+        let result: &str = "<!doctypehtml><htmllang=\"en\"><head><metacharset=\"utf-8\"><metaname=\"viewport\"content=\"width=device-width,initial-scale=1\"><title>IDContactgegevens</title></head><body><main><divclass=\"attributes\"><div><h4>Geverifieerdegegevens</h4><section><h4>HenkDieter</h4><dl><dt>age</dt><dd>42</dd><dt>E-mailadres</dt><dd>hd@example.com</dd></dl></section></div></div></main></body></html>";
 
         assert_eq!(
             remove_whitespace(result),
-            remove_whitespace(&out_result.content())
+            remove_whitespace(out_result.content())
         );
 
         let credentials = collect_credentials(&guest_auth_results, &config).unwrap();
-        let rendered = render_credentials(credentials, CredentialRenderType::Json).unwrap();
-        let result: serde_json::Value = serde_json::from_str(&rendered.content()).unwrap();
+        let rendered = render_credentials(credentials, RenderType::Json).unwrap();
+        let result: serde_json::Value = serde_json::from_str(rendered.content()).unwrap();
         let expected = serde_json::json! {
             [{
                 "purpose":"test_purpose",

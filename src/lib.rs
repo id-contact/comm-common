@@ -1,3 +1,5 @@
+/// Common authentication and authorisation mechanisms
+pub mod auth;
 /// Common configuration mechanisms
 pub mod config;
 /// Error type with responder implementation
@@ -7,6 +9,8 @@ pub mod jwt;
 #[cfg(feature = "session_db")]
 /// Database manipulation code for keeping track of sessions based on platform tokens
 pub mod session;
+/// Tera templates
+pub mod templates;
 /// Common types
 pub mod types;
 /// Utilities
@@ -14,11 +18,13 @@ pub mod util;
 // credential collection and rendering
 #[cfg(feature = "platform_token")]
 pub mod credentials;
-#[cfg(feature = "platform_token")]
 #[macro_use]
 extern crate lazy_static;
 
 pub mod prelude {
+    pub use crate::auth::{
+        check_token, render_login, render_unauthorized, AuthProvider, LoginUrl, TokenCookie,
+    };
     pub use crate::config::Config;
     pub use crate::error::Error;
     pub use crate::jwt::sign_auth_select_params;

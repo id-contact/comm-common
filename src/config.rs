@@ -1,3 +1,4 @@
+use crate::auth;
 use crate::error::Error;
 
 use id_contact_jwt::{EncryptionKeyConfig, SignKeyConfig};
@@ -9,7 +10,7 @@ use std::convert::TryFrom;
 #[cfg(feature = "auth_during_comm")]
 pub(crate) use self::auth_during_comm::{AuthDuringCommConfig, RawAuthDuringCommConfig};
 
-/// Configuration paramaters as read directly fom config.toml file.
+/// Configuration parameters as read directly from config.toml file.
 #[derive(Deserialize, Debug)]
 pub struct RawConfig {
     /// Internal-facing URL
@@ -23,6 +24,8 @@ pub struct RawConfig {
     decryption_privkey: EncryptionKeyConfig,
     /// Public key used to verify ID Contact JWSs
     signature_pubkey: SignKeyConfig,
+
+    auth_provider: Option<String>,
 
     #[cfg(feature = "auth_during_comm")]
     #[serde(flatten)]
@@ -41,6 +44,8 @@ pub struct Config {
     pub decrypter: Box<dyn JweDecrypter>,
     pub verifier: Box<dyn JwsVerifier>,
 
+    pub auth_provider: Option<auth::AuthProvider>,
+
     #[cfg(feature = "auth_during_comm")]
     #[serde(flatten)]
     pub auth_during_comm_config: AuthDuringCommConfig,
@@ -54,6 +59,11 @@ impl TryFrom<RawConfig> for Config {
         let auth_during_comm_config =
             AuthDuringCommConfig::try_from(raw_config.auth_during_comm_config)?;
 
+        let auth_provider = match raw_config.auth_provider {
+            Some(a) => Some(auth::AuthProvider::try_from(a)?),
+            None => None,
+        };
+
         Ok(Config {
             #[cfg(feature = "auth_during_comm")]
             auth_during_comm_config,
@@ -61,6 +71,7 @@ impl TryFrom<RawConfig> for Config {
             external_url: raw_config.external_url,
             sentry_dsn: raw_config.sentry_dsn,
 
+            auth_provider,
             decrypter: Box::<dyn JweDecrypter>::try_from(raw_config.decryption_privkey)?,
             verifier: Box::<dyn JwsVerifier>::try_from(raw_config.signature_pubkey)?,
         })
@@ -89,6 +100,10 @@ impl Config {
 
     pub fn sentry_dsn(&self) -> Option<&str> {
         self.sentry_dsn.as_deref()
+    }
+
+    pub fn auth_provider(&self) -> &Option<auth::AuthProvider> {
+        &self.auth_provider
     }
 
     #[cfg(feature = "auth_during_comm")]
@@ -252,6 +267,7 @@ external_url = "https://external.example.com"
 core_url = "https://core.example.com"
 widget_url = "https://widget.example.com"
 display_name = "Example Comm"
+auth_provider = "Google"
 guest_signature_secret = "fliepfliepfliepfliepfliepfliepfliepfliep"
 host_signature_secret = "flapflapflapflapflapflapflapflapflapflap"
 start_auth_key_id = "example"
