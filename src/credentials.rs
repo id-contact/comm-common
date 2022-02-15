@@ -100,6 +100,22 @@ pub fn render_credentials(
     })
 }
 
+/// retrieve sessions for all users in a room
+/// the id of the room is provided by a host jwt
+#[cfg(feature = "session_db")]
+pub async fn get_sessions_for_host(
+    host_token: String,
+    config: &Config,
+    db: SessionDBConn,
+) -> Result<Vec<Session>, Error> {
+    let host_token = HostToken::from_platform_jwt(
+        &host_token,
+        config.auth_during_comm_config().host_verifier(),
+    )?;
+    
+    Session::find_by_room_id(host_token.room_id, &db).await
+}
+
 /// retrieve authentication results for all users in a room
 /// the id of the room is provided by a host jwt
 #[cfg(feature = "session_db")]
@@ -108,11 +124,7 @@ pub async fn get_credentials_for_host(
     config: &Config,
     db: SessionDBConn,
 ) -> Result<Vec<Credentials>, Error> {
-    let host_token = HostToken::from_platform_jwt(
-        &host_token,
-        config.auth_during_comm_config().host_verifier(),
-    )?;
-    let sessions: Vec<Session> = Session::find_by_room_id(host_token.room_id, &db).await?;
+    let sessions = get_sessions_for_host(host_token, config, db).await?;
 
     let guest_auth_results = sessions
         .into_iter()
