@@ -165,7 +165,7 @@ async fn redirect_generic<T>(
             Cookie::build("token", token.access_token().to_owned())
                 .http_only(true)
                 .secure(true)
-                .same_site(SameSite::Lax)
+                .same_site(SameSite::None)
                 .finish(),
         );
 
