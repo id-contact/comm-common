@@ -106,7 +106,7 @@ pub fn render_credentials(
 pub async fn get_sessions_for_host(
     host_token: String,
     config: &Config,
-    db: SessionDBConn,
+    db: &SessionDBConn,
 ) -> Result<Vec<Session>, Error> {
     let host_token = HostToken::from_platform_jwt(
         &host_token,
@@ -122,7 +122,7 @@ pub async fn get_sessions_for_host(
 pub async fn get_credentials_for_host(
     host_token: String,
     config: &Config,
-    db: SessionDBConn,
+    db: &SessionDBConn,
 ) -> Result<Vec<Credentials>, Error> {
     let sessions = get_sessions_for_host(host_token, config, db).await?;
 
