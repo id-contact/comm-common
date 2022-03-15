@@ -113,7 +113,7 @@ pub async fn get_sessions_for_host(
         config.auth_during_comm_config().host_verifier(),
     )?;
 
-    Session::find_by_room_id(host_token.room_id, &db).await
+    Session::find_by_room_id(host_token.room_id, db).await
 }
 
 /// retrieve authentication results for all users in a room
