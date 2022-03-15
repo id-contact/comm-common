@@ -106,14 +106,14 @@ pub fn render_credentials(
 pub async fn get_sessions_for_host(
     host_token: String,
     config: &Config,
-    db: SessionDBConn,
+    db: &SessionDBConn,
 ) -> Result<Vec<Session>, Error> {
     let host_token = HostToken::from_platform_jwt(
         &host_token,
         config.auth_during_comm_config().host_verifier(),
     )?;
 
-    Session::find_by_room_id(host_token.room_id, &db).await
+    Session::find_by_room_id(host_token.room_id, db).await
 }
 
 /// retrieve authentication results for all users in a room
@@ -122,7 +122,7 @@ pub async fn get_sessions_for_host(
 pub async fn get_credentials_for_host(
     host_token: String,
     config: &Config,
-    db: SessionDBConn,
+    db: &SessionDBConn,
 ) -> Result<Vec<Credentials>, Error> {
     let sessions = get_sessions_for_host(host_token, config, db).await?;
 
