@@ -209,7 +209,7 @@ mod tests {
         test_attributes.insert("email".to_string(), "hd@example.com".to_string());
 
         let in_result = AuthResult {
-            status: AuthStatus::Succes,
+            status: AuthStatus::Success,
             attributes: Some(test_attributes),
             session_url: None,
         };
