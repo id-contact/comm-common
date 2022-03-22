@@ -1,8 +1,8 @@
-use crate::config::Config;
+use crate::{config::Config, translations::Translations};
 use crate::error::Error;
 #[cfg(feature = "session_db")]
 use crate::session::{Session, SessionDBConn};
-use crate::templates::{RenderType, RenderedContent, Translations, TEMPLATES, TRANSLATIONS};
+use crate::templates::{RenderType, RenderedContent, TEMPLATES};
 #[cfg(feature = "session_db")]
 use crate::types::platform_token::{FromPlatformJwt, HostToken};
 use crate::types::{Credentials, GuestAuthResult};
@@ -68,6 +68,7 @@ impl From<Credentials> for SortedCredentials {
 pub fn render_credentials(
     credentials: Vec<Credentials>,
     render_type: RenderType,
+    translations: Translations,
 ) -> Result<RenderedContent, Error> {
     if render_type == RenderType::Json {
         let content = serde_json::to_string(&credentials)?;
@@ -78,14 +79,13 @@ pub fn render_credentials(
     }
 
     let mut context = Context::new();
-    let translations: Translations = TRANSLATIONS.clone();
 
     let sorted_credentials: Vec<SortedCredentials> = credentials
         .into_iter()
         .map(SortedCredentials::from)
         .collect();
 
-    context.insert("translations", &translations);
+    context.insert("translations", translations.all());
     context.insert("credentials", &sorted_credentials);
 
     let content = if render_type == RenderType::HtmlPage {
@@ -143,7 +143,7 @@ mod tests {
     use super::*;
 
     use id_contact_jwt::{sign_and_encrypt_auth_result, EncryptionKeyConfig, SignKeyConfig};
-    use std::collections::HashMap;
+    use std::{collections::HashMap};
     use std::convert::TryFrom;
 
     use id_contact_proto::{AuthResult, AuthStatus};
@@ -237,15 +237,27 @@ mod tests {
             internal_url: "https://example.com".to_string(),
             external_url: None,
             sentry_dsn: None,
+            default_locale: String::from("nl"),
+            translations: HashMap::new(),
             decrypter,
             auth_provider: None,
             verifier,
             auth_during_comm_config,
         };
 
+        let translations = Translations {
+            translations: HashMap::from([
+                ("attributes".to_string(), "Gegevens".to_string()),
+                ("title".to_string(), "Gegevens".to_string()),
+                ("age".to_string(), "Leeftijd".to_string()),
+                ("email".to_string(), "E-mailadres".to_string()),
+            ]),
+            language: "nl".to_string(),
+        };
+
         let credentials = collect_credentials(&guest_auth_results, &config).unwrap();
-        let out_result = render_credentials(credentials, RenderType::Html).unwrap();
-        let result: &str = "<section><h4>HenkDieter</h4><dl><dt><span>age</span></dt><dd><span>42</span></dd><dt><span>E-mailadres</span></dt><dd><span>hd@example.com</span></dd></dl></section>";
+        let out_result = render_credentials(credentials, RenderType::Html, translations.clone()).unwrap();
+        let result: &str = "<section><h4>HenkDieter</h4><dl><dt><span>Leeftijd</span></dt><dd><span>42</span></dd><dt><span>E-mailadres</span></dt><dd><span>hd@example.com</span></dd></dl></section>";
 
         assert_eq!(
             remove_whitespace(result),
@@ -253,8 +265,8 @@ mod tests {
         );
 
         let credentials = collect_credentials(&guest_auth_results, &config).unwrap();
-        let out_result = render_credentials(credentials, RenderType::HtmlPage).unwrap();
-        let result: &str = "<!doctypehtml><htmllang=\"en\"><head><metacharset=\"utf-8\"><metaname=\"viewport\"content=\"width=device-width,initial-scale=1\"><title>IDContactgegevens</title></head><body><main><divclass=\"attributes\"><div><h4>Geverifieerdegegevens</h4><section><h4>HenkDieter</h4><dl><dt><span>age</span></dt><dd><span>42</span></dd><dt><span>E-mailadres</span></dt><dd><span>hd@example.com</span></dd></dl></section></div></div></main></body></html>";
+        let out_result = render_credentials(credentials, RenderType::HtmlPage, translations.clone()).unwrap();
+        let result: &str = "<!doctypehtml><htmllang=\"en\"><head><metacharset=\"utf-8\"><metaname=\"viewport\"content=\"width=device-width,initial-scale=1\"><title>Gegevens</title></head><body><main><divclass=\"attributes\"><div><h4>Gegevens</h4><section><h4>HenkDieter</h4><dl><dt><span>Leeftijd</span></dt><dd><span>42</span></dd><dt><span>E-mailadres</span></dt><dd><span>hd@example.com</span></dd></dl></section></div></div></main></body></html>";
 
         assert_eq!(
             remove_whitespace(result),
@@ -262,7 +274,7 @@ mod tests {
         );
 
         let credentials = collect_credentials(&guest_auth_results, &config).unwrap();
-        let rendered = render_credentials(credentials, RenderType::Json).unwrap();
+        let rendered = render_credentials(credentials, RenderType::Json, translations.clone()).unwrap();
         let result: serde_json::Value = serde_json::from_str(rendered.content()).unwrap();
         let expected = serde_json::json! {
             [{

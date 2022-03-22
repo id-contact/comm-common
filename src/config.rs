@@ -4,11 +4,12 @@ use crate::error::Error;
 use id_contact_jwt::{EncryptionKeyConfig, SignKeyConfig};
 use josekit::{jwe::JweDecrypter, jws::JwsVerifier};
 use serde::Deserialize;
-
-use std::convert::TryFrom;
+use std::{convert::TryFrom, collections::HashMap};
 
 #[cfg(feature = "auth_during_comm")]
 pub(crate) use self::auth_during_comm::{AuthDuringCommConfig, RawAuthDuringCommConfig};
+
+pub type LanguageTranslations = HashMap<String, HashMap<String, String>>;
 
 /// Configuration parameters as read directly from config.toml file.
 #[derive(Deserialize, Debug)]
@@ -19,6 +20,10 @@ pub struct RawConfig {
     external_url: Option<String>,
     /// Sentry DSN
     sentry_dsn: Option<String>,
+    /// Default locale
+    default_locale: String,
+    /// Translations indexed by locale
+    translations: LanguageTranslations,
 
     /// Private key used to decrypt ID Contact JWEs
     decryption_privkey: EncryptionKeyConfig,
@@ -40,6 +45,8 @@ pub struct Config {
     pub internal_url: String,
     pub external_url: Option<String>,
     pub sentry_dsn: Option<String>,
+    pub default_locale: String,
+    pub translations: LanguageTranslations,
 
     pub decrypter: Box<dyn JweDecrypter>,
     pub verifier: Box<dyn JwsVerifier>,
@@ -70,7 +77,8 @@ impl TryFrom<RawConfig> for Config {
             internal_url: raw_config.internal_url,
             external_url: raw_config.external_url,
             sentry_dsn: raw_config.sentry_dsn,
-
+            default_locale: raw_config.default_locale,
+            translations: raw_config.translations,
             auth_provider,
             decrypter: Box::<dyn JweDecrypter>::try_from(raw_config.decryption_privkey)?,
             verifier: Box::<dyn JwsVerifier>::try_from(raw_config.signature_pubkey)?,
@@ -100,6 +108,10 @@ impl Config {
 
     pub fn sentry_dsn(&self) -> Option<&str> {
         self.sentry_dsn.as_deref()
+    }
+
+    pub fn get_language_translations(&self) -> &LanguageTranslations {
+        &self.translations
     }
 
     pub fn auth_provider(&self) -> &Option<auth::AuthProvider> {
@@ -263,6 +275,7 @@ mod tests {
 [global]
 internal_url = "https://internal.example.com"
 external_url = "https://external.example.com"
+default_locale = "en"
 
 core_url = "https://core.example.com"
 widget_url = "https://widget.example.com"
@@ -271,6 +284,12 @@ auth_provider = "Google"
 guest_signature_secret = "fliepfliepfliepfliepfliepfliepfliepfliep"
 host_signature_secret = "flapflapflapflapflapflapflapflapflapflap"
 start_auth_key_id = "example"
+
+[global.translations.en]
+unknown_error = "Unknown error"
+
+[global.translations.nl]
+unknown_error = "Onbekende fout"
 
 [global.widget_signing_privkey]
 type = "EC"

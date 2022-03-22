@@ -1,8 +1,8 @@
 use std::{convert::TryFrom, str::FromStr};
 
-use crate::config::Config;
+use crate::{config::Config, translations::Translations};
 use crate::error::Error;
-use crate::templates::{RenderType, RenderedContent, Translations, TEMPLATES, TRANSLATIONS};
+use crate::templates::{RenderType, RenderedContent, TEMPLATES};
 
 use reqwest::header::AUTHORIZATION;
 use rocket::{
@@ -87,8 +87,9 @@ async fn redirect_google(
     config: &State<Config>,
     cookies: &CookieJar<'_>,
     token: TokenResponse<Google>,
+    translations: Translations,
 ) -> Result<String, Error> {
-    redirect_generic(config, cookies, token).await
+    redirect_generic(config, cookies, token, translations).await
 }
 
 #[derive(serde::Deserialize)]
@@ -123,8 +124,9 @@ async fn redirect_microsoft(
     config: &State<Config>,
     cookies: &CookieJar<'_>,
     token: TokenResponse<Microsoft>,
+    translations: Translations,
 ) -> Result<String, Error> {
-    redirect_generic(config, cookies, token).await
+    redirect_generic(config, cookies, token, translations).await
 }
 
 #[derive(serde::Deserialize)]
@@ -159,6 +161,7 @@ async fn redirect_generic<T>(
     config: &State<Config>,
     cookies: &CookieJar<'_>,
     token: TokenResponse<T>,
+    translations: Translations,
 ) -> Result<String, Error> {
     if check_token(TokenCookie(token.access_token().to_owned()), config).await? {
         cookies.add_private(
@@ -169,34 +172,33 @@ async fn redirect_generic<T>(
                 .finish(),
         );
 
-        return Ok(TRANSLATIONS.get(
+        return Ok(translations.get(
             "login_successful",
             "You are now logged in. You can close this window",
         ));
     }
 
-    Err(Error::Forbidden(TRANSLATIONS.get(
+    Err(Error::Forbidden(translations.get(
         "insufficient_permissions",
         "Insufficient permissions, try logging in with another account",
     )))
 }
 
 #[rocket::post("/auth/logout")]
-async fn logout_generic(cookies: &CookieJar<'_>) -> Result<String, Error> {
+async fn logout_generic(cookies: &CookieJar<'_>, translations: Translations) -> Result<String, Error> {
     cookies.remove_private(Cookie::named("token"));
-    Ok(TRANSLATIONS.get(
+    Ok(translations.get(
         "logout_successful",
         "You are now logged out. You can close this window",
     ))
 }
 
-pub fn render_login(config: &Config, render_type: RenderType) -> Result<RenderedContent, Error> {
+pub fn render_login(config: &Config, render_type: RenderType, translations: Translations) -> Result<RenderedContent, Error> {
     let login_url = format!("{}/auth/login", config.external_url());
     if render_type == RenderType::Html {
         let mut context = Context::new();
-        let translations: Translations = TRANSLATIONS.clone();
 
-        context.insert("translations", &translations);
+        context.insert("translations", translations.all());
         context.insert("login_url", &login_url);
 
         let content = TEMPLATES.render("login.html", &context)?;
@@ -212,13 +214,13 @@ pub fn render_login(config: &Config, render_type: RenderType) -> Result<Rendered
 pub fn render_unauthorized(
     config: &Config,
     render_type: RenderType,
+    translations: Translations,
 ) -> Result<RenderedContent, Error> {
     let logout_url = format!("{}/auth/logout", config.external_url());
     if render_type == RenderType::Html {
         let mut context = Context::new();
-        let translations: Translations = TRANSLATIONS.clone();
 
-        context.insert("translations", &translations);
+        context.insert("translations", translations.all());
         context.insert("logout_url", &logout_url);
 
         let content = TEMPLATES.render("expired.html", &context)?;
