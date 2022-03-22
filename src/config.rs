@@ -4,7 +4,7 @@ use crate::error::Error;
 use id_contact_jwt::{EncryptionKeyConfig, SignKeyConfig};
 use josekit::{jwe::JweDecrypter, jws::JwsVerifier};
 use serde::Deserialize;
-use std::{convert::TryFrom, collections::HashMap};
+use std::{collections::HashMap, convert::TryFrom};
 
 #[cfg(feature = "auth_during_comm")]
 pub(crate) use self::auth_during_comm::{AuthDuringCommConfig, RawAuthDuringCommConfig};

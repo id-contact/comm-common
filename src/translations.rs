@@ -13,7 +13,10 @@ pub struct Translations {
 
 impl<'r> Translations {
     pub fn get(&self, key: &str, fallback: &str) -> String {
-      self.translations.get(key).unwrap_or(&fallback.to_owned()).to_owned()
+        self.translations
+            .get(key)
+            .unwrap_or(&fallback.to_owned())
+            .to_owned()
     }
 
     pub fn all(&self) -> &HashMap<String, String> {

@@ -1,8 +1,8 @@
 use std::{convert::TryFrom, str::FromStr};
 
-use crate::{config::Config, translations::Translations};
 use crate::error::Error;
 use crate::templates::{RenderType, RenderedContent, TEMPLATES};
+use crate::{config::Config, translations::Translations};
 
 use reqwest::header::AUTHORIZATION;
 use rocket::{
@@ -185,7 +185,10 @@ async fn redirect_generic<T>(
 }
 
 #[rocket::post("/auth/logout")]
-async fn logout_generic(cookies: &CookieJar<'_>, translations: Translations) -> Result<String, Error> {
+async fn logout_generic(
+    cookies: &CookieJar<'_>,
+    translations: Translations,
+) -> Result<String, Error> {
     cookies.remove_private(Cookie::named("token"));
     Ok(translations.get(
         "logout_successful",
@@ -193,7 +196,11 @@ async fn logout_generic(cookies: &CookieJar<'_>, translations: Translations) -> 
     ))
 }
 
-pub fn render_login(config: &Config, render_type: RenderType, translations: Translations) -> Result<RenderedContent, Error> {
+pub fn render_login(
+    config: &Config,
+    render_type: RenderType,
+    translations: Translations,
+) -> Result<RenderedContent, Error> {
     let login_url = format!("{}/auth/login", config.external_url());
     if render_type == RenderType::Html {
         let mut context = Context::new();

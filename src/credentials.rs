@@ -1,4 +1,3 @@
-use crate::{config::Config, translations::Translations};
 use crate::error::Error;
 #[cfg(feature = "session_db")]
 use crate::session::{Session, SessionDBConn};
@@ -6,6 +5,7 @@ use crate::templates::{RenderType, RenderedContent, TEMPLATES};
 #[cfg(feature = "session_db")]
 use crate::types::platform_token::{FromPlatformJwt, HostToken};
 use crate::types::{Credentials, GuestAuthResult};
+use crate::{config::Config, translations::Translations};
 use serde::Serialize;
 use serde_json;
 use tera::Context;
@@ -143,7 +143,7 @@ mod tests {
     use super::*;
 
     use id_contact_jwt::{sign_and_encrypt_auth_result, EncryptionKeyConfig, SignKeyConfig};
-    use std::{collections::HashMap};
+    use std::collections::HashMap;
     use std::convert::TryFrom;
 
     use id_contact_proto::{AuthResult, AuthStatus};
@@ -256,7 +256,8 @@ mod tests {
         };
 
         let credentials = collect_credentials(&guest_auth_results, &config).unwrap();
-        let out_result = render_credentials(credentials, RenderType::Html, translations.clone()).unwrap();
+        let out_result =
+            render_credentials(credentials, RenderType::Html, translations.clone()).unwrap();
         let result: &str = "<section><h4>HenkDieter</h4><dl><dt><span>Leeftijd</span></dt><dd><span>42</span></dd><dt><span>E-mailadres</span></dt><dd><span>hd@example.com</span></dd></dl></section>";
 
         assert_eq!(
@@ -265,7 +266,8 @@ mod tests {
         );
 
         let credentials = collect_credentials(&guest_auth_results, &config).unwrap();
-        let out_result = render_credentials(credentials, RenderType::HtmlPage, translations.clone()).unwrap();
+        let out_result =
+            render_credentials(credentials, RenderType::HtmlPage, translations.clone()).unwrap();
         let result: &str = "<!doctypehtml><htmllang=\"en\"><head><metacharset=\"utf-8\"><metaname=\"viewport\"content=\"width=device-width,initial-scale=1\"><title>Gegevens</title></head><body><main><divclass=\"attributes\"><div><h4>Gegevens</h4><section><h4>HenkDieter</h4><dl><dt><span>Leeftijd</span></dt><dd><span>42</span></dd><dt><span>E-mailadres</span></dt><dd><span>hd@example.com</span></dd></dl></section></div></div></main></body></html>";
 
         assert_eq!(
@@ -274,7 +276,8 @@ mod tests {
         );
 
         let credentials = collect_credentials(&guest_auth_results, &config).unwrap();
-        let rendered = render_credentials(credentials, RenderType::Json, translations.clone()).unwrap();
+        let rendered =
+            render_credentials(credentials, RenderType::Json, translations.clone()).unwrap();
         let result: serde_json::Value = serde_json::from_str(rendered.content()).unwrap();
         let expected = serde_json::json! {
             [{
