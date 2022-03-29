@@ -38,38 +38,35 @@ pub enum Error {
 impl<'r, 'o: 'r> rocket::response::Responder<'r, 'o> for Error {
     fn respond_to(self, request: &'r rocket::Request<'_>) -> rocket::response::Result<'o> {
         use Error::*;
-        let (body, status) = match &self {
-            NotFound => (json!({"error": "NotFound"}), Status::NotFound),
-            BadRequest(m) => (
-                json!({"error": "BadRequest", "detail": m}),
-                Status::BadRequest,
-            ),
-            Forbidden(m) => (
-                json!({"error": "Forbidden", "detail": m}),
-                Status::Forbidden,
-            ),
-            Unauthorized(m) => (
-                json!({"error": "Unauthorized", "detail": m}),
-                Status::Unauthorized,
-            ),
-            InternalServer(m) => (
-                json!({"error": "InternalServer", "detail": m}),
-                Status::InternalServerError,
-            ),
-            Jwe(e) => (
-                json!({"error": "BadRequest", "detail": format!("{}", e)}),
-                Status::BadRequest,
-            ),
-            Template(e) => (
-                json!({"error": "TemplateError", "detail": format!("{}", e)}),
-                Status::InternalServerError,
-            ),
+        let (message, status) = match &self {
+            NotFound => ("Not found".to_string(), Status::NotFound),
+            BadRequest(m) => (m.to_string(), Status::BadRequest),
+            Forbidden(m) => (m.to_string(), Status::Forbidden),
+            Unauthorized(m) => (m.to_string(), Status::Unauthorized),
+            InternalServer(m) => (m.to_string(), Status::InternalServerError),
+            Jwe(m) => (m.to_string(), Status::BadRequest),
+            Template(m) => (m.to_string(), Status::InternalServerError),
             _ => return rocket::response::Debug::from(self).respond_to(request),
         };
-        Ok(Response::build_from(body.respond_to(request).unwrap())
-            .status(status)
-            .header(ContentType::JSON)
-            .finalize())
+
+        // Log the error to stderr
+        eprintln!("Error {}", message);
+
+        if request.headers().get_one("Accept") == Some("application/json") {
+            let body = json!({ "error": status.to_string() });
+
+            return Ok(Response::build_from(body.respond_to(request).unwrap())
+                .status(status)
+                .header(ContentType::JSON)
+                .finalize());
+        }
+
+        Ok(
+            Response::build_from(status.to_string().respond_to(request).unwrap())
+                .status(status)
+                .header(ContentType::Text)
+                .finalize(),
+        )
     }
 }
 

@@ -3,8 +3,6 @@ use rocket::{
     response::{self, content, Responder},
     Request,
 };
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::path::Path;
 use tera::Tera;
 
@@ -39,15 +37,6 @@ pub enum RenderType {
     Json,
     Html,
     HtmlPage,
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-pub struct Translations(HashMap<String, String>);
-
-impl Translations {
-    pub fn get(&self, key: &str, fallback: &str) -> String {
-        self.0.get(key).unwrap_or(&fallback.to_owned()).to_owned()
-    }
 }
 
 // Includes template at runtime, if available, otherwise uses compile-time template. This enables the option to override
@@ -87,14 +76,5 @@ lazy_static! {
         include_template!(tera, "expired.html");
 
         tera
-    };
-    pub static ref TRANSLATIONS: Translations = {
-        if Path::new("nl.yml").exists() {
-            let f = std::fs::File::open("nl.yml").expect("Could not find translation file");
-            serde_yaml::from_reader(f).expect("Could not parse translations file")
-        } else {
-            serde_yaml::from_str(include_str!("translations/nl.yml"))
-                .expect("Could not load the translations file")
-        }
     };
 }

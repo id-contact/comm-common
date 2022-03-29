@@ -11,6 +11,8 @@ pub mod jwt;
 pub mod session;
 /// Tera templates
 pub mod templates;
+/// Translation messages and request guard
+pub mod translations;
 /// Common types
 pub mod types;
 /// Utilities
