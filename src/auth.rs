@@ -190,6 +190,7 @@ async fn logout_generic(
     translations: Translations,
 ) -> Result<String, Error> {
     cookies.remove_private(Cookie::named("token"));
+
     Ok(translations.get(
         "logout_successful",
         "You are now logged out. You can close this window",
@@ -202,6 +203,7 @@ pub fn render_login(
     translations: Translations,
 ) -> Result<RenderedContent, Error> {
     let login_url = format!("{}/auth/login", config.external_url());
+
     if render_type == RenderType::Html {
         let mut context = Context::new();
 
@@ -224,6 +226,7 @@ pub fn render_unauthorized(
     translations: Translations,
 ) -> Result<RenderedContent, Error> {
     let logout_url = format!("{}/auth/logout", config.external_url());
+
     if render_type == RenderType::Html {
         let mut context = Context::new();
 
@@ -238,4 +241,27 @@ pub fn render_unauthorized(
     }
 
     Err(Error::Forbidden(logout_url))
+}
+
+pub fn render_not_found(
+    config: &Config,
+    render_type: RenderType,
+    translations: Translations,
+) -> Result<RenderedContent, Error> {
+    let logout_url = format!("{}/auth/logout", config.external_url());
+
+    if render_type == RenderType::Html {
+        let mut context = Context::new();
+
+        context.insert("translations", translations.all());
+        context.insert("logout_url", &logout_url);
+
+        let content = TEMPLATES.render("not_found.html", &context)?;
+        return Ok(RenderedContent {
+            content,
+            render_type,
+        });
+    }
+
+    Err(Error::NotFound)
 }
